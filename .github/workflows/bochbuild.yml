@@ -73,24 +73,28 @@ jobs:
       - name: Create Bochs Configuration (Maximum Debug)
         run: |
           cat > $BOCHS_CONFIG << EOF
-# Bochs Configuration for Maximum Debugging
-floppya: 1_44=$IMAGE_NAME, status=inserted
-boot: a
-log: $BOCHS_LOG
-panic: action=report
-error: action=report
-info: action=report
-debug: action=report
-# Enable all CPU and memory logging
-cpu: model=pentium, ips=1000000
-memory: guest=64
-vga: enabled=0  # Disable VGA to force serial-only output
-com1: enabled=1, mode=file, dev=$SERIAL_LOG
-# Critical: Enable detailed exception reporting
-debugger_log: ""  # Send debugger output to stderr
-magic_break: enabled=1
-EOF
-          cat $BOCHS_CONFIG
+          #!/bin/bash
+          EOF
+          echo "${{ env.BOCHS_CONFIG_CONTENT }}" > $BOCHS_CONFIG
+
+    env:
+      BOCHS_CONFIG_CONTENT: |
+        # Bochs Configuration for Maximum Debugging
+        floppya: 1_44=${{ env.IMAGE_NAME }}, status=inserted
+        boot: a
+        log: ${{ env.BOCHS_LOG }}
+        panic: action=report
+        error: action=report
+        info: action=report
+        debug: action=report
+        # Enable all CPU and memory logging
+        cpu: model=pentium, ips=1000000
+        memory: guest=64
+        vga: enabled=0  # Disable VGA to force serial-only output
+        com1: enabled=1, mode=file, dev=${{ env.SERIAL_LOG }}
+        # Critical: Enable detailed exception reporting
+        debugger_log: ""  # Send debugger output to stderr
+        magic_break: enabled=1
 
       - name: Run Bochs Boot Test (10-second timeout)
         run: |
