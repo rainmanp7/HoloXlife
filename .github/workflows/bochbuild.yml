@@ -89,17 +89,18 @@ jobs:
           cat > "$BOCHS_CONFIG" << EOF
           # Bochs Configuration for Maximum Debugging
           floppya: 1_44=$IMAGE_NAME, status=inserted
-          boot: a
+          boot: floppy
           log: $BOCHS_LOG
           panic: action=report
           error: action=report
           info: action=report
           debug: action=report
-          cpu: model=pentium, ips=1000000
-          memory: guest=64
-          vga: enabled=0
+          cpu: model=pentium_mmx, ips=1000000
+          megs: 64
+          vga: extension=none
           com1: enabled=1, mode=file, dev=$SERIAL_LOG
           magic_break: enabled=1
+          display_library: nogui
           EOF
           
           echo "Generated Bochs configuration:"
