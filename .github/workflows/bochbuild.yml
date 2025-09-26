@@ -69,7 +69,8 @@ EOF
         uses: actions/upload-artifact@v4
         with:
           name: bochs-logs
-          path: |
+          working-directory: .  # Explicitly set the working directory
+          paths: |
             serial.log
             bochs.log
             bochs_stderr.log
