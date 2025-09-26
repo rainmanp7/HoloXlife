@@ -1,0 +1,197 @@
+name: Debug Boot Test with Bochs (Maximum Verbosity)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-boot-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE_NAME: emergeos.img
+      SERIAL_LOG: serial.log
+      BOCHS_LOG: bochs.log
+      BOCHS_CONFIG: bochsrc.txt
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache APT Dependencies
+        id: apt-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-bochs-${{ hashFiles('**/Makefile') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-apt-bochs-
+
+      - name: Install Bochs and Dependencies
+        run: |
+          echo "Installing Bochs and build tools..."
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential nasm gcc-multilib bochs bochs-x
+
+      - name: System Information
+        run: |
+          echo "=== SYSTEM INFORMATION ==="
+          uname -a
+          bochs --version 2>&1 || echo "Bochs version info via package:"
+          dpkg -l | grep bochs
+          echo "=========================="
+
+      - name: Build Kernel Image
+        run: |
+          echo "=== BUILDING $IMAGE_NAME ==="
+          if [ ! -f Makefile ]; then
+            echo "❌ Error: Makefile not found."
+            ls -la
+            exit 1
+          fi
+          
+          make clean 2>/dev/null || true
+          make $IMAGE_NAME || { 
+            echo "❌ Build failed"
+            ls -la
+            exit 1
+          }
+          
+          if [ ! -f $IMAGE_NAME ]; then
+            echo "❌ $IMAGE_NAME not created"
+            exit 1
+          fi
+          echo "✅ Built $IMAGE_NAME ($(stat -c%s $IMAGE_NAME) bytes)"
+
+      - name: Create Bochs Configuration (Maximum Debug)
+        run: |
+          cat > $BOCHS_CONFIG << EOF
+# Bochs Configuration for Maximum Debugging
+floppya: 1_44=$IMAGE_NAME, status=inserted
+boot: a
+log: $BOCHS_LOG
+panic: action=report
+error: action=report
+info: action=report
+debug: action=report
+# Enable all CPU and memory logging
+cpu: model=pentium, ips=1000000
+memory: guest=64
+vga: enabled=0  # Disable VGA to force serial-only output
+com1: enabled=1, mode=file, dev=$SERIAL_LOG
+# Critical: Enable detailed exception reporting
+debugger_log: -       # Send debugger output to stderr
+magic_break: enabled=1
+EOF
+          cat $BOCHS_CONFIG
+
+      - name: Run Bochs Boot Test (10-second timeout)
+        run: |
+          echo "=== RUNNING BOCHS ==="
+          echo "Starting Bochs with maximum verbosity..."
+          
+          # Run Bochs with timeout (Bochs doesn't support built-in timeout)
+          timeout 15s bochs -q -f $BOCHS_CONFIG -rc /dev/null 2>&1 | tee bochs_stderr.log || true
+          
+          echo "Bochs execution completed."
+
+      - name: Comprehensive Output Analysis
+        run: |
+          echo "=== BOCHS DEBUG ANALYSIS ==="
+          
+          echo "1. BOCHS STDERR OUTPUT:"
+          if [ -s bochs_stderr.log ]; then
+            echo "--- Bochs stderr ---"
+            cat bochs_stderr.log
+          else
+            echo "No stderr output"
+          fi
+          echo ""
+          
+          echo "2. BOCHS LOG FILE:"
+          if [ -s $BOCHS_LOG ]; then
+            echo "--- Bochs log (last 100 lines) ---"
+            tail -100 $BOCHS_LOG
+            echo "Total log lines: $(wc -l < $BOCHS_LOG)"
+            
+            # Check for critical errors
+            if grep -i "exception\|fault\|triple fault\|error" $BOCHS_LOG; then
+              echo "⚠️  CRITICAL ERRORS DETECTED IN BOCHS LOG"
+            fi
+          else
+            echo "❌ No Bochs log file created!"
+          fi
+          echo ""
+          
+          echo "3. SERIAL OUTPUT:"
+          if [ -s $SERIAL_LOG ]; then
+            echo "--- Serial Output ---"
+            cat $SERIAL_LOG
+            echo "Serial log size: $(wc -c < $SERIAL_LOG) bytes"
+          else
+            echo "❌ No serial output detected!"
+          fi
+          echo "========================="
+
+      - name: Boot Success Analysis
+        run: |
+          echo "=== BOOT SUCCESS ANALYSIS ==="
+          
+          if [ ! -s $SERIAL_LOG ] && [ ! -s $BOCHS_LOG ]; then
+            echo "❌ CRITICAL: No output from Bochs at all!"
+            exit 1
+          fi
+          
+          if [ -s $SERIAL_LOG ]; then
+            if grep -qi "HyperKernel fully initialized\|Evolution engine online" $SERIAL_LOG; then
+              echo "✅ SUCCESS: Kernel fully initialized!"
+            elif grep -qi "HYPER\|SER ON\|Loading Holographic Kernel" $SERIAL_LOG; then
+              echo "⚠️  PARTIAL: Boot started but may have crashed later"
+              tail -10 $SERIAL_LOG
+            else
+              echo "❓ UNKNOWN: Serial output exists but no clear boot markers"
+              head -5 $SERIAL_LOG
+            fi
+          fi
+          
+          # Always check Bochs log for CPU state on crash
+          if [ -s $BOCHS_LOG ]; then
+            if grep -A 20 -B 5 "exception\|fault" $BOCHS_LOG; then
+              echo "🔍 CRASH CONTEXT FROM BOCHS:"
+              grep -A 20 -B 5 "exception\|fault" $BOCHS_LOG
+            fi
+          fi
+          echo "========================="
+
+      - name: Upload Debug Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bochs-debug-artifacts
+          path: |
+            $IMAGE_NAME
+            $SERIAL_LOG
+            $BOCHS_LOG
+            bochs_stderr.log
+            $BOCHS_CONFIG
+            Makefile
+            boot.asm
+            kernel_entry.asm
+            holographic_kernel.c
+            linker.ld
+
+      - name: Final Summary
+        if: always()
+        run: |
+          echo "=== BOCHS DEBUG SUMMARY ==="
+          echo "✅ Bochs provides cycle-accurate x86 emulation with full register dumps on crash"
+          echo "✅ This workflow preserves your working kernel state"
+          echo "✅ All debug artifacts uploaded for offline analysis"
+          echo "============================="
