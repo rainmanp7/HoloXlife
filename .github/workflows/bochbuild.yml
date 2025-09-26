@@ -1,38 +1,25 @@
 name: Debug Boot Test with Bochs (Maximum Verbosity)
-'on':
+
+on:
   push:
     branches:
       - main
   pull_request:
     branches:
       - main
-  workflow_dispatch: null
+  workflow_dispatch:
+
 jobs:
   build-and-boot-debug:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    
     env:
       IMAGE_NAME: emergeos.img
       SERIAL_LOG: serial.log
       BOCHS_LOG: bochs.log
       BOCHS_CONFIG: bochsrc.txt
-      BOCHS_CONFIG_TEMPLATE: |
-        # Bochs Configuration for Maximum Debugging
-        floppya: 1_44=$IMAGE_NAME, status=inserted
-        boot: a
-        log: $BOCHS_LOG
-        panic: action=report
-        error: action=report
-        info: action=report
-        debug: action=report
-        # Enable all CPU and memory logging
-        cpu: model=pentium, ips=1000000
-        memory: guest=64
-        vga: enabled=0  # Disable VGA to force serial-only output
-        com1: enabled=1, mode=file, dev=$SERIAL_LOG
-        # Critical: Enable detailed exception reporting
-        debugger_log: -  # This is now a literal string '-' within YAML
-        magic_break: enabled=1
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -46,22 +33,24 @@ jobs:
           path: |
             /var/cache/apt/archives
             /var/lib/apt/lists
-          key: '${{ runner.os }}-apt-bochs-${{ hashFiles(''**/Makefile'') }}-v1'
+          key: ${{ runner.os }}-apt-bochs-${{ hashFiles('**/Makefile') }}-v1
           restore-keys: |
             ${{ runner.os }}-apt-bochs-
 
       - name: Install Bochs and Dependencies
-        run: >
+        run: |
           echo "Installing Bochs and build tools..."
           sudo apt-get update -y
-          sudo apt-get install -y build-essential nasm gcc-multilib bochs gettext-base
+          sudo apt-get install -y build-essential nasm gcc-multilib bochs bochs-x gettext-base
 
       - name: System Information
         run: |
           echo "=== SYSTEM INFORMATION ==="
           uname -a
-          bochs --version 2>&1 || echo "Bochs version info via package:"
-          dpkg -l | grep bochs
+          echo "Bochs version:"
+          bochs --version 2>&1 || echo "Bochs version check failed"
+          echo "Bochs packages:"
+          dpkg -l | grep bochs || echo "No bochs packages found"
           echo "=========================="
 
       - name: Build Kernel Image
@@ -72,55 +61,118 @@ jobs:
             ls -la
             exit 1
           fi
+          
+          echo "Cleaning previous builds..."
           make clean 2>/dev/null || true
-          make $IMAGE_NAME || { 
+          
+          echo "Building image..."
+          if ! make $IMAGE_NAME; then
             echo "❌ Build failed"
+            echo "Directory contents:"
             ls -la
-            exit 1
-          }
-          if [ ! -f $IMAGE_NAME ]; then
-            echo "❌ $IMAGE_NAME not created"
+            echo "Make output available above"
             exit 1
           fi
-          echo "✅ Built $IMAGE_NAME ($(stat -c%s $IMAGE_NAME) bytes)"
+          
+          if [ ! -f "$IMAGE_NAME" ]; then
+            echo "❌ $IMAGE_NAME not created"
+            echo "Directory contents after build:"
+            ls -la
+            exit 1
+          fi
+          
+          echo "✅ Built $IMAGE_NAME ($(stat -c%s "$IMAGE_NAME") bytes)"
 
-      - name: Create Bochs Configuration (Maximum Debug)
+      - name: Create Bochs Configuration
         run: |
-          # Use envsubst to substitute shell variables into the template
-          echo "$BOCHS_CONFIG_TEMPLATE" | envsubst > $BOCHS_CONFIG
-          cat $BOCHS_CONFIG
+          echo "Creating Bochs configuration file..."
+          cat > "$BOCHS_CONFIG" << EOF
+          # Bochs Configuration for Maximum Debugging
+          floppya: 1_44=$IMAGE_NAME, status=inserted
+          boot: a
+          log: $BOCHS_LOG
+          panic: action=report
+          error: action=report
+          info: action=report
+          debug: action=report
+          cpu: model=pentium, ips=1000000
+          memory: guest=64
+          vga: enabled=0
+          com1: enabled=1, mode=file, dev=$SERIAL_LOG
+          magic_break: enabled=1
+          EOF
+          
+          echo "Generated Bochs configuration:"
+          cat "$BOCHS_CONFIG"
 
-      - name: Run Bochs Boot Test (15-second timeout)
-        run: >
+      - name: Run Bochs Boot Test
+        run: |
           echo "=== RUNNING BOCHS ==="
           echo "Starting Bochs with maximum verbosity..."
-          timeout 15s bochs -q -f $BOCHS_CONFIG -rc /dev/null 2>&1 | tee bochs_stderr.log || true
-          echo "Bochs execution completed."
+          
+          # Ensure log files don't exist from previous runs
+          rm -f "$BOCHS_LOG" "$SERIAL_LOG" bochs_stderr.log
+          
+          # Run Bochs with timeout, capturing both stdout and stderr
+          set +e
+          timeout 15s bochs -q -f "$BOCHS_CONFIG" 2>&1 | tee bochs_output.log
+          BOCHS_EXIT_CODE=$?
+          set -e
+          
+          echo "Bochs execution completed with exit code: $BOCHS_EXIT_CODE"
+          
+          # Exit code 124 means timeout, which is expected
+          if [ $BOCHS_EXIT_CODE -eq 124 ]; then
+            echo "✅ Bochs timed out as expected (15 seconds)"
+          elif [ $BOCHS_EXIT_CODE -eq 0 ]; then
+            echo "✅ Bochs exited normally"
+          else
+            echo "⚠️ Bochs exited with code $BOCHS_EXIT_CODE"
+          fi
 
       - name: Comprehensive Output Analysis
         run: |
           echo "=== BOCHS DEBUG ANALYSIS ==="
-          echo "1. BOCHS STDERR OUTPUT:"
-          if [ -s bochs_stderr.log ]; then
-            echo "--- Bochs stderr ---"
-            cat bochs_stderr.log
+          
+          echo "1. BOCHS COMBINED OUTPUT:"
+          if [ -f bochs_output.log ] && [ -s bochs_output.log ]; then
+            echo "--- Bochs output (last 100 lines) ---"
+            tail -100 bochs_output.log
           else
-            echo "No stderr output"
+            echo "No combined output file found or empty"
           fi
+          
           echo ""
           echo "2. BOCHS LOG FILE:"
-          if [ -s $BOCHS_LOG ]; then
+          if [ -f "$BOCHS_LOG" ] && [ -s "$BOCHS_LOG" ]; then
             echo "--- Bochs log (last 100 lines) ---"
-            tail -100 $BOCHS_LOG
-            echo "Total log lines: $(wc -l < $BOCHS_LOG)"
-            # Check for critical errors
-            if grep -i "exception\|fault\|triple fault\|error" $BOCHS_LOG > /dev/null; then
-              echo "⚠️  CRITICAL ERRORS DETECTED IN BOCHS LOG"
-              echo "Failing workflow due to critical boot errors."
+            tail -100 "$BOCHS_LOG"
+            echo "Total log lines: $(wc -l < "$BOCHS_LOG")"
+            
+            # Check for critical errors that indicate boot failure
+            if grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" > /dev/null; then
+              echo "⚠️ CRITICAL BOOT ERRORS DETECTED"
+              echo "Boot process encountered critical errors - this may indicate kernel issues"
+              grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" | head -10
               exit 1
             else
-              echo "✅ No critical errors found in Bochs log."
+              echo "✅ No critical boot errors found in Bochs log"
             fi
           else
-            echo "Bochs log file is empty or missing."
+            echo "Bochs log file is empty or missing"
+            echo "This might indicate Bochs didn't start properly"
           fi
+          
+          echo ""
+          echo "3. SERIAL OUTPUT:"
+          if [ -f "$SERIAL_LOG" ] && [ -s "$SERIAL_LOG" ]; then
+            echo "--- Serial output ---"
+            cat "$SERIAL_LOG"
+          else
+            echo "No serial output captured"
+          fi
+          
+          echo ""
+          echo "4. FILE LISTING:"
+          echo "Generated files in workspace:"
+          ls -la *.log *.img *.txt 2>/dev/null || echo "No log/image files found"
