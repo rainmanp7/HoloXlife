@@ -68,10 +68,17 @@ EOF
       - name: Upload Logs
         uses: actions/upload-artifact@v4
         with:
-          name: bochs-logs
-          working-directory: .  # Explicitly set the working directory
-          paths: |
-            serial.log
-            bochs.log
-            bochs_stderr.log
-          retention-days: 5 # Optional: how long to keep artifacts
+          name: serial-log
+          path: serial.log
+
+      - name: Upload Bochs Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: bochs-log
+          path: bochs.log
+
+      - name: Upload Bochs Stderr Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: bochs-stderr-log
+          path: bochs_stderr.log
