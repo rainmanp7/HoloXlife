@@ -41,7 +41,7 @@ jobs:
         run: |
           echo "Installing Bochs and build tools..."
           sudo apt-get update -y
-          sudo apt-get install -y build-essential nasm gcc-multilib bochs bochs-x gettext-base
+          sudo apt-get install -y build-essential nasm gcc-multilib bochs bochs-x gettext-base xvfb
 
       - name: System Information
         run: |
@@ -100,7 +100,6 @@ jobs:
           vga: extension=none
           com1: enabled=1, mode=file, dev=$SERIAL_LOG
           magic_break: enabled=1
-          display_library: nogui
           EOF
           
           echo "Generated Bochs configuration:"
@@ -112,12 +111,24 @@ jobs:
           echo "Starting Bochs with maximum verbosity..."
           
           # Ensure log files don't exist from previous runs
-          rm -f "$BOCHS_LOG" "$SERIAL_LOG" bochs_stderr.log
+          rm -f "$BOCHS_LOG" "$SERIAL_LOG" bochs_output.log
           
-          # Run Bochs with timeout, capturing both stdout and stderr
+          # Check available display libraries
+          echo "Checking Bochs display capabilities..."
+          bochs --help display 2>&1 | grep -i display || true
+          
+          # Run Bochs with timeout, using DISPLAY=:99 for headless mode
           set +e
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 &
+          XVFB_PID=$!
+          sleep 2
+          
           timeout 15s bochs -q -f "$BOCHS_CONFIG" 2>&1 | tee bochs_output.log
           BOCHS_EXIT_CODE=$?
+          
+          # Clean up Xvfb
+          kill $XVFB_PID 2>/dev/null || true
           set -e
           
           echo "Bochs execution completed with exit code: $BOCHS_EXIT_CODE"
