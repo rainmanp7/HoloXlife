@@ -45,7 +45,7 @@ error: action=fatal
 cpu: model=pentium
 com1: enabled=1, mode=file, dev=${SERIAL}
 magic_break: enabled=1
-display_library: x
+display_library: dummy # or nogui, or remove the line entirely
 # -------------------------------------------------
 EOF
           envsubst < "$BOCHS_CONFIG" > tmp
@@ -64,3 +64,10 @@ EOF
 
       - name: Show last 50 lines of Bochs log
         run: tail -50 "$BOCHS_LOG"
+
+      - name: Upload Logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: bochs-logs
+          path: serial.log, bochs.log, bochs_stderr.log
+          retention-days: 5 # Optional: how long to keep artifacts
