@@ -87,7 +87,7 @@ memory: guest=64
 vga: enabled=0  # Disable VGA to force serial-only output
 com1: enabled=1, mode=file, dev=$SERIAL_LOG
 # Critical: Enable detailed exception reporting
-debugger_log: -       # Send debugger output to stderr
+debugger_log: ""  # Send debugger output to stderr
 magic_break: enabled=1
 EOF
           cat $BOCHS_CONFIG
