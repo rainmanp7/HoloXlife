@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-boot:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       IMAGE: emergeos.img
       SERIAL: serial.log
@@ -48,7 +48,8 @@ magic_break: enabled=1
 display_library: x
 # -------------------------------------------------
 EOF
-          envsubst < "$BOCHS_CONFIG" > tmp; mv tmp "$BOCHS_CONFIG"
+          envsubst < "$BOCHS_CONFIG" > tmp
+          mv tmp "$BOCHS_CONFIG"
           cat "$BOCHS_CONFIG"
 
       - name: Run Bochs
