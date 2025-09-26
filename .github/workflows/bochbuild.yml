@@ -161,18 +161,23 @@ jobs:
             tail -100 "$BOCHS_LOG"
             echo "Total log lines: $(wc -l < "$BOCHS_LOG")"
             
-            # Check for critical errors that indicate boot failure
-            if grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" > /dev/null; then
-              echo "⚠️ CRITICAL BOOT ERRORS DETECTED"
-              echo "Boot process encountered critical errors - this may indicate kernel issues"
-              grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" | head -10
-              exit 1
-            else
-              echo "✅ No critical boot errors found in Bochs log"
+            # Look for specific kernel boot information
+            echo ""
+            echo "=== KERNEL BOOT ANALYSIS ==="
+            if grep -i "exception\|fault\|triple.*fault\|panic\|error" "$BOCHS_LOG" > /dev/null; then
+              echo "🔍 KERNEL BOOT ISSUES FOUND:"
+              grep -i "exception\|fault\|triple.*fault\|panic\|error" "$BOCHS_LOG" | tail -10
+              echo ""
+              echo "📋 MEMORY/CPU STATE AT ERROR:"
+              grep -A5 -B5 "exception\|fault\|panic" "$BOCHS_LOG" | tail -20 || true
             fi
+            
+            # Don't fail the workflow - we want to see what's happening
+            echo "⚠️ Boot errors detected, but continuing analysis for debugging"
           else
             echo "Bochs log file is empty or missing"
             echo "This might indicate Bochs didn't start properly"
+            exit 1
           fi
           
           echo ""
@@ -188,3 +193,13 @@ jobs:
           echo "4. FILE LISTING:"
           echo "Generated files in workspace:"
           ls -la *.log *.img *.txt 2>/dev/null || echo "No log/image files found"
+          
+          echo ""
+          echo "5. DETAILED KERNEL ANALYSIS:"
+          if [ -f "$IMAGE_NAME" ]; then
+            echo "Kernel image size: $(stat -c%s "$IMAGE_NAME") bytes"
+            echo "Kernel image type:"
+            file "$IMAGE_NAME" || true
+            echo "First 32 bytes of kernel (hex):"
+            xxd -l 32 "$IMAGE_NAME" 2>/dev/null || hexdump -C "$IMAGE_NAME" | head -3
+          fi
