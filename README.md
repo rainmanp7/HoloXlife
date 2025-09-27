@@ -1,37 +1,34 @@
 ```markdown
-# 🚀 EmergeOS Ada - Advanced Holographic Kernel
+# EmergeOS Ada - Advanced Holographic Kernel
 
-> *"Building the future of safe, intelligent operating systems with Ada"*
-
-## 🌌 Overview
+## Overview
 
 EmergeOS Ada is a revolutionary operating system kernel built with **Ada 2012**, designed for maximum safety, reliability, and real-time performance. This kernel serves as the foundation for emergent artificial intelligence systems with holographic memory management.
 
-**✨ Key Innovation:** First known operating system kernel combining Ada's aerospace-grade safety with emergent AI concepts, developed in the Philippines.
+**Key Innovation:** First known operating system kernel combining Ada's aerospace-grade safety with emergent AI concepts, developed in the Philippines.
 
-## 🛡️ Why Ada?
+## Why Ada?
 
 Ada was chosen for EmergeOS because it's the **gold standard** for mission-critical systems:
 
-| Safety Feature | Ada Advantage |
-|----------------|---------------|
-| 🔒 **Type Safety** | Prevents buffer overflows and memory corruption |
-| ⚡ **Real-Time Guarantees** | Deterministic execution for AI entities |
-| 📐 **Formal Verification** | Mathematical proof of correctness |
-| ✈️ **Aerospace Heritage** | Used in Boeing 777, International Space Station |
-| 🔄 **Concurrency Control** | Built-in task management for entities |
-| 🛟 **Exception Handling** | Structured error recovery |
+- ✅ **Type Safety** - Prevents buffer overflows and memory corruption
+- ✅ **Real-Time Guarantees** - Deterministic execution for AI entities  
+- ✅ **Formal Verification** - Mathematical proof of correctness
+- ✅ **Aerospace Heritage** - Used in Boeing 777, International Space Station
+- ✅ **Concurrency Control** - Built-in task management for entities
+- ✅ **Exception Handling** - Structured error recovery
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 
+EmergeOS Ada Architecture:
 ┌─────────────────────────────────────────────┐
-│🚀 boot.asm (16-bit → 32-bit transition)   │
+│boot.asm (16-bit → 32-bit transition)      │
 ├─────────────────────────────────────────────┤
-│🔧 kernel_entry.asm (Assembly entry point) │
+│kernel_entry.asm (Assembly entry point)    │
 ├─────────────────────────────────────────────┤
-│💎 emergeos.adb (Ada kernel with safety)   │
+│emergeos.adb (Ada kernel with safety)      │
 │• Memory management (256KB heap)           │
 │• VGA text output                          │
 │• Type-safe operations                     │
@@ -40,9 +37,9 @@ Ada was chosen for EmergeOS because it's the **gold standard** for mission-criti
 
 ```
 
-## 📁 Project Structure
+## Project Structure
 
-### 🎯 Core Files
+### Core Files
 - **`emergeos.adb`** - Main Ada kernel
 - **`emergeos.gpr`** - GNAT project configuration  
 - **`boot.asm`** - Bootloader (16-bit assembly)
@@ -50,26 +47,26 @@ Ada was chosen for EmergeOS because it's the **gold standard** for mission-criti
 - **`linker.ld`** - Memory layout specification
 - **`Makefile`** - Build system
 
-### 📦 Build Artifacts (Generated)
+### Build Artifacts (Generated)
 - **`emergeos.img`** - Bootable floppy disk image
 - **`kernel.bin`** - Compiled kernel binary
 - **`boot.bin`** - Compiled bootloader
 
-## ⚙️ Prerequisites
+## Prerequisites
 
-### 🐧 Ubuntu/Debian:
+### Ubuntu/Debian:
 ```bash
 sudo apt update
 sudo apt install -y gnat gnatmake gprbuild nasm bochs bochs-x
 ```
 
-🎩 Fedora/RHEL:
+Fedora/RHEL:
 
 ```bash
 sudo dnf install gcc-gnat gprbuild nasm bochs
 ```
 
-✅ Verify Installation:
+Verify Installation:
 
 ```bash
 gnat --version        # Should show GNAT version
@@ -77,9 +74,9 @@ nasm --version        # Should show NASM version
 bochs --version       # Should show Bochs version
 ```
 
-🚀 Building EmergeOS
+Building EmergeOS
 
-⚡ Quick Start:
+Quick Start:
 
 ```bash
 git clone https://github.com/rainmanp7/HoloXlife.git
@@ -88,7 +85,7 @@ make all
 make run
 ```
 
-🔧 Step-by-Step Build:
+Step-by-Step Build:
 
 ```bash
 # Clean previous builds
@@ -113,22 +110,22 @@ make emergeos.img
 make run
 ```
 
-📊 Expected Output
+Expected Output
 
 When EmergeOS boots successfully in Bochs, you should see:
 
 ```
 === EMERGEOS ADA BOOTED ===
-🟢 SUCCESS: Ada Kernel is running!
-💾 Heap: 256KB (safe)
-📊 Stack: 0x90000 (safe)  
-💻 Language: Ada 2012
-🔧 Memory allocator: Ready
+SUCCESS: Ada Kernel is running!
+Heap: 256KB (safe)
+Stack: 0x90000 (safe)  
+Language: Ada 2012
+Memory allocator: Ready
 ```
 
-⚖️ Ada vs C Comparison
+Ada Advantages Over C
 
-Feature 🐍 C Kernel 🛡️ Ada Kernel
+Feature C Kernel Ada Kernel
 Memory Safety ❌ Manual management ✅ Automatic bounds checking
 Type Safety ⚠️ Weak typing ✅ Strong static typing
 Real-Time ❌ No guarantees ✅ Deterministic execution
@@ -136,9 +133,9 @@ Concurrency ❌ Manual synchronization ✅ Built-in task management
 Error Handling ❌ Manual checks ✅ Structured exceptions
 Verification ❌ Testing only ✅ Formal proof possible
 
-🧪 Testing
+Testing
 
-🖥️ Local Testing:
+Local Testing:
 
 ```bash
 # Build and run in Bochs
@@ -148,7 +145,7 @@ make run
 make debug
 ```
 
-🔄 CI/CD Testing:
+CI/CD Testing:
 
 GitHub Actions workflow includes:
 
@@ -157,50 +154,50 @@ GitHub Actions workflow includes:
 · ✅ Tests boot process with Bochs
 · ✅ Analyzes boot success/failure
 
-🗺️ Memory Layout
+Memory Layout
 
 ```
 Memory Map:
-0x00007C00  🚀 Boot loader (512 bytes)
-0x00010000  💻 Kernel code start  
-0x00090000  📊 Stack pointer
-0x000B8000  🖥️ VGA text memory
-💾 Kernel Heap: 256KB managed by Ada allocator
+0x00007C00  Boot loader (512 bytes)
+0x00010000  Kernel code start
+0x00090000  Stack pointer
+0x000B8000  VGA text memory
+Kernel Heap: 256KB managed by Ada allocator
 ```
 
-📈 Performance Characteristics
+Performance Characteristics
 
-· 🚀 Boot Time: ~2 seconds in Bochs
-· 💾 Memory Footprint: ~1KB kernel + 256KB heap
-· ⚡ Real-Time Response: Deterministic with Ada runtime
-· 🛡️ Safety Level: Aerospace-grade (no crashes from common bugs)
+· Boot Time: ~2 seconds in Bochs
+· Memory Footprint: ~1KB kernel + 256KB heap
+· Real-Time Response: Deterministic with Ada runtime
+· Safety Level: Aerospace-grade (no crashes from common bugs)
 
-🗓️ Development Roadmap
+Development Roadmap
 
-✅ Phase 1 (Current)
+Phase 1 ✅ (Current)
 
 · Ada kernel foundation
 · Memory management
 · Boot system
 · Safety guarantees
 
-🔄 Phase 2 (Planned)
+Phase 2 (Planned)
 
-· 🤖 Entity System with Ada task types
-· 💫 Holographic Memory with formal verification
-· ⏱️ Real-Time Scheduling using Ada's priority system
-· 🔀 Concurrent Entities with protected objects
+· Entity System with Ada task types
+· Holographic Memory with formal verification
+· Real-Time Scheduling using Ada's priority system
+· Concurrent Entities with protected objects
 
-🚀 Phase 3 (Future)
+Phase 3 (Future)
 
-· 📐 Formal Verification using SPARK subset
-· 🔧 Self-Modifying Code with safety contracts
-· 🧠 Collective Consciousness with message passing
-· 🌌 Emergent Behavior with provable properties
+· Formal Verification using SPARK subset
+· Self-Modifying Code with safety contracts
+· Collective Consciousness with message passing
+· Emergent Behavior with provable properties
 
-🐛 Debugging
+Debugging
 
-🔨 Build Issues:
+Build Issues:
 
 ```bash
 # Check Ada installation
@@ -213,7 +210,7 @@ make clean && make V=1 all
 ls -la *.asm *.adb *.gpr
 ```
 
-🚨 Boot Issues:
+Boot Issues:
 
 ```bash
 # Check kernel size
@@ -223,55 +220,49 @@ ls -la kernel.bin
 xxd -l 512 boot.bin
 ```
 
-👥 Contributing
+Contributing
 
 EmergeOS Ada welcomes contributions from:
 
-· 👨‍💻 Ada developers familiar with systems programming
-· 🔧 Kernel developers interested in safety-critical systems
-· 🧠 AI researchers working on emergent behavior
-· ⏱️ Real-time systems engineers
+· Ada developers familiar with systems programming
+· Kernel developers interested in safety-critical systems
+· AI researchers working on emergent behavior
+· Real-time systems engineers
 
-📋 Code Standards:
+Code Standards:
 
 · Ada 2012 standard compliance
 · GNAT style guidelines
 · Formal verification where possible
 · Real-time constraints preserved
 
-⚠️ Safety Notice
+Safety Notice
 
-🚨 Important: This kernel is designed for research and development. While Ada provides significant safety guarantees compared to C, this is still experimental software for emergent AI systems.
+⚠️ Important: This kernel is designed for research and development. While Ada provides significant safety guarantees compared to C, this is still experimental software for emergent AI systems.
 
-📄 License
+License
 
 Apache License 2.0 - See LICENSE file for details.
 
-👨‍💻 Creator
+Creator
 
 rainmanp7
-📍 Philippines, Mindanao, Davao Del Sur
-📅 Date: September 27, 2025
+Philippines, Mindanao, Davao Del Sur
+Date: September 27, 2025
+
+Building the future of safe, intelligent operating systems with Ada.
 
 ---
 
-🏆 Technical Achievement
+Technical Achievement
 
 EmergeOS Ada represents a significant milestone:
 
-· 💎 First known Ada-based emergent AI kernel
-· ✈️ Aerospace-grade safety for AI systems
-· 🇵🇭 Philippine innovation in systems programming
-· ⚡ Real-time guarantees for emergent behavior
+· First known Ada-based emergent AI kernel
+· Aerospace-grade safety for AI systems
+· Philippine innovation in systems programming
+· Real-time guarantees for emergent behavior
 
-"The future of operating systems is safe, intelligent, and emergent."
+The future of operating systems is safe, intelligent, and emergent.
 
----
-
-<div align="center">
-
-🌟 Built with precision for the next generation of intelligent systems 🌟
-
-</div>
 ```
-
