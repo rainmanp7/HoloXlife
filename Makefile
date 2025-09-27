@@ -5,9 +5,11 @@ CFLAGS = -m32 -c -ffreestanding -fno-pie -Wall -Wextra -std=c99 -nostdlib -fno-b
 LDFLAGS = -m elf_i386 -T linker.ld --nmagic
 QEMU = qemu-system-i386
 
-# Calculate kernel sectors dynamically
+# Calculate kernel sectors dynamically, with minimum of 1
 KERNEL_SIZE = $(shell [ -f kernel.bin ] && wc -c < kernel.bin || echo 0)
-KERNEL_SECTORS = $(shell expr \( $(KERNEL_SIZE) + 511 \) / 512 2>/dev/null || echo 20)
+KERNEL_SECTORS = $(shell expr \( $(KERNEL_SIZE) + 511 \) / 512 2>/dev/null || echo 1)
+# Ensure at least 1 sector
+KERNEL_SECTORS := $(shell if [ $(KERNEL_SECTORS) -lt 1 ]; then echo 1; else echo $(KERNEL_SECTORS); fi)
 
 all: emergeos.img
 
