@@ -1,15 +1,18 @@
 # Makefile
-
 ASM = nasm
 CC = gcc
 CFLAGS = -m32 -c -ffreestanding -fno-pie -Wall -Wextra -std=c99 -nostdlib -fno-builtin
 LDFLAGS = -m elf_i386 -T linker.ld --nmagic
 QEMU = qemu-system-i386
 
+# Calculate kernel sectors dynamically
+KERNEL_SIZE = $(shell [ -f kernel.bin ] && wc -c < kernel.bin || echo 0)
+KERNEL_SECTORS = $(shell expr \( $(KERNEL_SIZE) + 511 \) / 512 2>/dev/null || echo 20)
+
 all: emergeos.img
 
 boot.bin: boot.asm
-	$(ASM) -f bin boot.asm -o boot.bin
+	$(ASM) -f bin -d HOLOGRAPHIC_KERNEL_SECTORS=$(KERNEL_SECTORS) boot.asm -o boot.bin
 
 kernel_entry.o: kernel_entry.asm
 	$(ASM) -f elf32 kernel_entry.asm -o kernel_entry.o
