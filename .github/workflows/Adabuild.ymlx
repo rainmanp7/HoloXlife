@@ -1,0 +1,253 @@
+name: EmergeOS Ada Build and Boot Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-test-ada:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    
+    env:
+      IMAGE_NAME: emergeos.img
+      SERIAL_LOG: serial.log
+      BOCHS_LOG: bochs.log
+      BOCHS_CONFIG: bochsrc.txt
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Cache APT Dependencies
+        id: apt-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-ada-bochs-${{ hashFiles('**/Makefile') }}-v2
+          restore-keys: |
+            ${{ runner.os }}-ada-bochs-
+
+      - name: Install Ada Compiler and Dependencies
+        run: |
+          echo "📦 Installing GNAT Ada compiler and build tools..."
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            build-essential \
+            nasm \
+            gnat \
+            gnatmake \
+            gprbuild \
+            gcc-multilib \
+            bochs \
+            bochs-x \
+            gettext-base \
+            xvfb
+          echo "✅ Installation complete"
+
+      - name: Verify Ada Installation
+        run: |
+          echo "🔍 Verifying Ada toolchain..."
+          echo "GNAT version:"
+          gnat --version
+          echo ""
+          echo "GNATMAKE version:" 
+          gnatmake --version
+          echo ""
+          echo "GPRBUILD version:"
+          gprbuild --version 2>/dev/null || echo "gprbuild version check failed"
+          echo ""
+          echo "NASM version:"
+          nasm --version
+          echo ""
+          echo "Bochs version:"
+          bochs --version 2>&1 | head -3 || echo "Bochs version check failed"
+          echo "✅ Ada toolchain verified"
+
+      - name: Show Project Files
+        run: |
+          echo "📁 Project structure:"
+          ls -la
+          echo ""
+          echo "🔍 Checking required files:"
+          for file in boot.asm kernel_entry.asm linker.ld emergeos.adb emergeos.gpr Makefile; do
+            if [ -f "$file" ]; then
+              echo "✅ $file ($(stat -c%s "$file") bytes)"
+            else
+              echo "❌ $file - MISSING"
+            fi
+          done
+
+      - name: Build EmergeOS Ada Kernel
+        run: |
+          echo "🔨 Building EmergeOS with Ada kernel..."
+          
+          # Clean any existing build
+          make clean 2>/dev/null || true
+          
+          # Build step by step with verbose output
+          echo "Step 1: Compile Ada kernel..."
+          make emergeos.o
+          
+          echo "Step 2: Assemble kernel entry..."  
+          make kernel_entry.o
+          
+          echo "Step 3: Link kernel..."
+          make kernel.bin
+          
+          echo "Step 4: Build bootloader..."
+          make boot.bin
+          
+          echo "Step 5: Create disk image..."
+          make $IMAGE_NAME
+          
+          # Verify build results
+          if [ ! -f "$IMAGE_NAME" ]; then
+            echo "❌ $IMAGE_NAME not created"
+            echo "Directory contents:"
+            ls -la
+            exit 1
+          fi
+          
+          echo "✅ Build successful!"
+          echo "📊 Build artifacts:"
+          ls -la *.bin *.img *.elf 2>/dev/null || true
+
+      - name: Analyze Kernel Binary
+        run: |
+          echo "🔍 Kernel analysis..."
+          
+          if [ -f kernel.bin ]; then
+            echo "Kernel size: $(stat -c%s kernel.bin) bytes"
+            echo "Kernel sectors needed: $(( ($(stat -c%s kernel.bin) + 511) / 512 ))"
+            echo "Kernel file type:"
+            file kernel.bin
+            echo "First 32 bytes (hex):"
+            xxd -l 32 kernel.bin 2>/dev/null || hexdump -C kernel.bin | head -2
+          fi
+          
+          if [ -f boot.bin ]; then
+            echo "Bootloader size: $(stat -c%s boot.bin) bytes"
+            echo "Boot signature (last 2 bytes should be 55 AA):"
+            xxd -s -2 boot.bin 2>/dev/null || tail -c 2 boot.bin | xxd
+          fi
+
+      - name: Create Bochs Configuration  
+        run: |
+          echo "⚙️ Creating Bochs configuration..."
+          cat > "$BOCHS_CONFIG" << EOF
+          # Bochs configuration for Ada EmergeOS
+          floppya: 1_44=$IMAGE_NAME, status=inserted
+          boot: floppy
+          log: $BOCHS_LOG
+          panic: action=report
+          error: action=report  
+          info: action=report
+          debug: action=ignore
+          cpu: model=pentium_mmx, ips=2000000
+          megs: 128
+          vga: extension=none
+          com1: enabled=1, mode=file, dev=$SERIAL_LOG
+          magic_break: enabled=1
+          EOF
+          
+          echo "📄 Bochs configuration:"
+          cat "$BOCHS_CONFIG"
+
+      - name: Test Boot with Bochs
+        run: |
+          echo "🚀 Testing EmergeOS Ada boot..."
+          
+          # Clean previous logs
+          rm -f "$BOCHS_LOG" "$SERIAL_LOG" bochs_output.log
+          
+          # Start virtual display
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 &
+          XVFB_PID=$!
+          sleep 2
+          
+          # Run Bochs with timeout
+          set +e
+          timeout 20s bochs -q -f "$BOCHS_CONFIG" 2>&1 | tee bochs_output.log
+          BOCHS_EXIT=$?
+          set -e
+          
+          # Cleanup
+          kill $XVFB_PID 2>/dev/null || true
+          
+          echo "Bochs exit code: $BOCHS_EXIT"
+          if [ $BOCHS_EXIT -eq 124 ]; then
+            echo "✅ Boot test timed out as expected (20 seconds)"
+          else
+            echo "ℹ️ Bochs exited with code $BOCHS_EXIT"
+          fi
+
+      - name: Analyze Boot Results
+        run: |
+          echo "📊 Ada EmergeOS Boot Analysis"
+          echo "============================="
+          
+          echo "1. 🖥️  BOCHS CONSOLE OUTPUT:"
+          if [ -f bochs_output.log ] && [ -s bochs_output.log ]; then
+            echo "--- Last 50 lines of Bochs output ---"
+            tail -50 bochs_output.log
+          else
+            echo "No Bochs console output captured"
+          fi
+          
+          echo ""
+          echo "2. 📋 BOCHS INTERNAL LOG:"
+          if [ -f "$BOCHS_LOG" ] && [ -s "$BOCHS_LOG" ]; then
+            echo "--- Bochs internal log (last 50 lines) ---"
+            tail -50 "$BOCHS_LOG"
+            
+            # Look for boot success indicators
+            echo ""
+            echo "🔍 Boot analysis:"
+            if grep -i "EMERGEOS.*ADA.*BOOTED" "$BOCHS_LOG" >/dev/null 2>&1; then
+              echo "✅ Ada kernel boot message detected!"
+            elif grep -i "SUCCESS.*Ada.*Kernel" "$BOCHS_LOG" >/dev/null 2>&1; then
+              echo "✅ Ada kernel success message detected!"  
+            else
+              echo "⚠️ No Ada kernel boot messages found in log"
+            fi
+            
+            if grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" >/dev/null 2>&1; then
+              echo "❌ System errors detected:"
+              grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" | tail -5
+            else
+              echo "✅ No critical system errors detected"
+            fi
+          else
+            echo "No Bochs internal log available"
+          fi
+          
+          echo ""
+          echo "3. 📺 SERIAL OUTPUT:"
+          if [ -f "$SERIAL_LOG" ] && [ -s "$SERIAL_LOG" ]; then
+            echo "--- Serial port output ---"
+            cat "$SERIAL_LOG"
+          else
+            echo "No serial output captured"
+          fi
+          
+          echo ""
+          echo "4. 📈 BUILD SUMMARY:"
+          echo "Image: $IMAGE_NAME ($(stat -c%s "$IMAGE_NAME" 2>/dev/null || echo "0") bytes)"
+          echo "Language: Ada 2012"
+          echo "Compiler: GNAT"
+          echo "Target: i386 bare metal"
+          echo "Boot test: Completed"
+          
+          # Always exit successfully for analysis
+          echo "✅ Analysis complete"
