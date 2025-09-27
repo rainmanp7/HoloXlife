@@ -95,7 +95,7 @@ struct HolographicSystem {
     uint32_t global_timestamp;
 };
 // --- KERNEL HEAP MEMORY MANAGEMENT ---
-static uint8_t kernel_heap[0xC0000]; // 128KB heap — KEEP ORIGINAL SIZE FOR STABILITY
+static uint8_t kernel_heap[0x40000]; // KB heap — KEEP ORIGINAL SIZE FOR STABILITY
 static uint32_t heap_offset = 0;
 
 // --- NEW FUNCTION: Get remaining free heap space ---
