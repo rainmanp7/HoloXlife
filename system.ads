@@ -1,4 +1,3 @@
--- system.ads
 package System is
    pragma Pure;
 
