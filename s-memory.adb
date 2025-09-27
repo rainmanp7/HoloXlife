@@ -1,10 +1,10 @@
--- s-memory.adb
+-- s-memory.adb (updated for 0x20000 heap)
 with System.Storage_Elements;
 package body System.Memory is
    use System.Storage_Elements;
 
-   Heap_Start : constant Address := 16#00400000#;  -- 4 MB
-   Heap_Size  : constant := 16#00100000#;         -- 1 MB
+   Heap_Start : constant Address := 16#00020000#;  -- 128 KiB
+   Heap_Size  : constant := 16#00010000#;         -- 64 KiB
    Heap_End   : constant Address := Heap_Start + Address (Heap_Size);
 
    Free_Ptr : Address := Heap_Start;
@@ -31,8 +31,7 @@ package body System.Memory is
 
    procedure Deallocate (Addr : Address; Size : size_t) is
    begin
-      -- Bump allocator: no free list. Ignore.
-      null;
+      null;  -- Bump allocator: no free list
    end Deallocate;
 
 end System.Memory;
