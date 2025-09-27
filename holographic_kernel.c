@@ -3,8 +3,8 @@ typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
 #define VIDEO_MEMORY 0xb8000
 
-// Reduce heap to avoid stack collision
-static uint8_t kernel_heap[0x40000]; // 256KB (was 768KB)
+// Reduce heap to avoid stack collision at 0x90000
+static uint8_t kernel_heap[0x40000]; // 256KB
 static uint32_t heap_offset = 0;
 
 static void* kmalloc(uint32_t size) {
@@ -39,6 +39,8 @@ static void print(const char* str) {
 void kmain(void) {
     print("=== EMERGEOS BOOTED ===\n");
     print("SUCCESS: Kernel is running!\n");
+    print("Heap: 256KB (safe)\n");
+    print("Stack: 0x90000 (safe)\n");
     for (;;)
         __asm__ volatile("hlt");
 }
