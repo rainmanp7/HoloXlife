@@ -33,6 +33,7 @@ jobs:
           path: |
             /var/cache/apt/archives
             /var/lib/apt/lists
+          # Using a checksum of the Makefile ensures a re-install if build deps change
           key: ${{ runner.os }}-ada-bochs-${{ hashFiles('**/Makefile') }}-v2
           restore-keys: |
             ${{ runner.os }}-ada-bochs-
@@ -41,17 +42,19 @@ jobs:
         run: |
           echo "📦 Installing GNAT Ada compiler and build tools..."
           sudo apt-get update -y
+          # CORRECTION: Removed 'gnatmake' as it's part of the 'gnat' package.
+          # Added 'libncurses5' as a common dependency for Bochs terminal output in some environments.
           sudo apt-get install -y \
             build-essential \
             nasm \
             gnat \
-            gnatmake \
             gprbuild \
             gcc-multilib \
             bochs \
             bochs-x \
             gettext-base \
-            xvfb
+            xvfb \
+            libncurses5
           echo "✅ Installation complete"
 
       - name: Verify Ada Installation
@@ -63,8 +66,9 @@ jobs:
           echo "GNATMAKE version:" 
           gnatmake --version
           echo ""
+          # Use gprbuild -v for a standard version check
           echo "GPRBUILD version:"
-          gprbuild --version 2>/dev/null || echo "gprbuild version check failed"
+          gprbuild -v 2>/dev/null || echo "gprbuild version check failed"
           echo ""
           echo "NASM version:"
           nasm --version
@@ -91,24 +95,12 @@ jobs:
         run: |
           echo "🔨 Building EmergeOS with Ada kernel..."
           
-          # Clean any existing build
-          make clean 2>/dev/null || true
+          # Use the main 'make' target if defined, which is usually safer and cleaner
+          make all || { echo "❌ Build failed. Displaying last 50 lines of make output:"; tail -50 make_output.log 2>/dev/null; exit 1; }
           
-          # Build step by step with verbose output
-          echo "Step 1: Compile Ada kernel..."
-          make emergeos.o
-          
-          echo "Step 2: Assemble kernel entry..."  
-          make kernel_entry.o
-          
-          echo "Step 3: Link kernel..."
-          make kernel.bin
-          
-          echo "Step 4: Build bootloader..."
-          make boot.bin
-          
-          echo "Step 5: Create disk image..."
-          make $IMAGE_NAME
+          # For a more verbose build, you might prefer:
+          # make clean
+          # make all 2>&1 | tee make_output.log || { echo "❌ Build failed"; cat make_output.log; exit 1; }
           
           # Verify build results
           if [ ! -f "$IMAGE_NAME" ]; then
@@ -138,7 +130,7 @@ jobs:
           if [ -f boot.bin ]; then
             echo "Bootloader size: $(stat -c%s boot.bin) bytes"
             echo "Boot signature (last 2 bytes should be 55 AA):"
-            xxd -s -2 boot.bin 2>/dev/null || tail -c 2 boot.bin | xxd
+            xxd -s -2 boot.bin 2>/dev/null | grep -E '55aa' || echo "Signature check failed or no output"
           fi
 
       - name: Create Bochs Configuration  
@@ -157,7 +149,8 @@ jobs:
           megs: 128
           vga: extension=none
           com1: enabled=1, mode=file, dev=$SERIAL_LOG
-          magic_break: enabled=1
+          # magic_break is useful but can cause Bochs to exit unexpectedly in CI
+          # magic_break: enabled=1 
           EOF
           
           echo "📄 Bochs configuration:"
@@ -178,6 +171,9 @@ jobs:
           
           # Run Bochs with timeout
           set +e
+          # Redirecting stderr to stdout (2>&1) and piping to tee is good.
+          # Use the 'display_library: sdl' or 'x' setting if the default doesn't work well with Xvfb, 
+          # but keeping the simple config and relying on the serial log is standard for OS testing.
           timeout 20s bochs -q -f "$BOCHS_CONFIG" 2>&1 | tee bochs_output.log
           BOCHS_EXIT=$?
           set -e
@@ -236,6 +232,7 @@ jobs:
           echo "3. 📺 SERIAL OUTPUT:"
           if [ -f "$SERIAL_LOG" ] && [ -s "$SERIAL_LOG" ]; then
             echo "--- Serial port output ---"
+            # Show content of serial log if it exists
             cat "$SERIAL_LOG"
           else
             echo "No serial output captured"
@@ -243,7 +240,8 @@ jobs:
           
           echo ""
           echo "4. 📈 BUILD SUMMARY:"
-          echo "Image: $IMAGE_NAME ($(stat -c%s "$IMAGE_NAME" 2>/dev/null || echo "0") bytes)"
+          # Use -L to suppress file not found errors from stat if the file is missing
+          echo "Image: $IMAGE_NAME ($(stat -L -c%s "$IMAGE_NAME" 2>/dev/null || echo "0") bytes)"
           echo "Language: Ada 2012"
           echo "Compiler: GNAT"
           echo "Target: i386 bare metal"
