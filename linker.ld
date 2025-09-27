@@ -1,10 +1,10 @@
-/* linker.ld */
+/* linker.ld - Improved for Ada kernel with heap */
 ENTRY(_start)
 
 SECTIONS
 {
-    /* Kernel loaded at 1 MiB (standard for protected-mode kernels) */
-    . = 0x100000;
+    /* Kernel loaded at 64 KiB (0x10000) - matches your current bootloader */
+    . = 0x10000;
 
     .text : {
         *(.text*)
@@ -25,19 +25,23 @@ SECTIONS
         __bss_end = .;
     }
 
-    /* Reserve 1 MiB for heap starting at 2 MiB */
-    . = 0x200000;
+    /* End of kernel image */
+    __kernel_end = .;
+
+    /* Reserve 64 KiB heap starting at 128 KiB (0x20000) */
+    . = 0x20000;
     __heap_start = .;
-    . = 0x300000;        /* 1 MiB heap */
+    . = 0x30000;        /* 64 KiB heap (128 KiB → 192 KiB) */
     __heap_end = .;
 
-    /* Stack grows downward from 3 MiB */
-    __stack_top = 0x300000;
+    /* Stack grows downward from 256 KiB (0x40000) */
+    __stack_top = 0x40000;
 
-    /* Ensure image doesn't exceed safe limit */
+    /* Discard debug and exception metadata (not needed in freestanding) */
     /DISCARD/ : {
         *(.eh_frame)
         *(.comment)
         *(.note*)
+        *(.debug*)
     }
 }
