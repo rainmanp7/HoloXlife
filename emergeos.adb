@@ -1,4 +1,4 @@
--- emergeos.adb - Pure Ada HoloXlife Operating System
+-- emergeos.adb - Pure Ada HoloXlife Operating System (Fixed)
 pragma No_Run_Time;
 pragma Restrictions (No_Exceptions);
 pragma Restrictions (No_Implicit_Heap_Allocations);
@@ -17,23 +17,25 @@ procedure EmergeOS is
    type DWord is mod 2**32;
    type QWord is mod 2**64;
    
-   -- Hardware port I/O (Pure Ada implementation)
+   -- Hardware port I/O using inline assembly (Fixed version)
    procedure Port_Out_8 (Port : Word; Value : Byte) is
    begin
+      -- Inline assembly for x86 out instruction
       System.Machine_Code.Asm 
-        ("outb %0, %1",
-         Inputs => (Byte'Asm_Input ("a", Value), 
-                    Word'Asm_Input ("d", Port)),
+        (Template => "outb %%al, %%dx",
+         Inputs   => (Byte'Asm_Input ("a", Value), 
+                     Word'Asm_Input ("d", Port)),
          Volatile => True);
    end Port_Out_8;
    
    function Port_In_8 (Port : Word) return Byte is
       Result : Byte;
    begin
+      -- Inline assembly for x86 in instruction
       System.Machine_Code.Asm 
-        ("inb %1, %0",
-         Outputs => Byte'Asm_Output ("=a", Result),
-         Inputs  => Word'Asm_Input ("d", Port),
+        (Template => "inb %%dx, %%al",
+         Outputs  => Byte'Asm_Output ("=a", Result),
+         Inputs   => Word'Asm_Input ("d", Port),
          Volatile => True);
       return Result;
    end Port_In_8;
@@ -109,8 +111,8 @@ procedure EmergeOS is
    
    procedure Console_Put_String (S : String) is
    begin
-      for C of S loop
-         Console_Put_Char (C);
+      for I in S'Range loop
+         Console_Put_Char (S(I));
       end loop;
    end Console_Put_String;
    
@@ -129,9 +131,11 @@ procedure EmergeOS is
    HOLO_MATRIX_SIZE : constant := 512; -- 512x512 matrix
    
    type Holo_Block_Status is (Free, Allocated, Reserved);
+   for Holo_Block_Status use (Free => 0, Allocated => 1, Reserved => 2);
    
+   -- Simplified holographic matrix (using bytes instead of enum for space)
    type Holo_Matrix_Type is array (0 .. HOLO_MATRIX_SIZE-1, 
-                                  0 .. HOLO_MATRIX_SIZE-1) of Holo_Block_Status;
+                                  0 .. HOLO_MATRIX_SIZE-1) of Byte;
    
    Holo_Matrix : Holo_Matrix_Type;
    for Holo_Matrix'Address use HOLO_BASE;
@@ -145,7 +149,7 @@ procedure EmergeOS is
       -- Initialize holographic matrix to free state
       for I in Holo_Matrix'Range(1) loop
          for J in Holo_Matrix'Range(2) loop
-            Holo_Matrix(I, J) := Free;
+            Holo_Matrix(I, J) := 0; -- Free
          end loop;
       end loop;
       Holo_Allocated_Blocks := 0;
@@ -159,7 +163,7 @@ procedure EmergeOS is
       -- Find contiguous free blocks in holographic space
       for I in Holo_Matrix'Range(1) loop
          for J in Holo_Matrix'Range(2) loop
-            if Holo_Matrix(I, J) = Free then
+            if Holo_Matrix(I, J) = 0 then -- Free
                if Found_Blocks = 0 then
                   Start_I := I;
                   Start_J := J;
@@ -174,7 +178,7 @@ procedure EmergeOS is
                         Alloc_J : constant Natural := (Start_J + Block) mod HOLO_MATRIX_SIZE;
                      begin
                         if Alloc_I < HOLO_MATRIX_SIZE then
-                           Holo_Matrix(Alloc_I, Alloc_J) := Allocated;
+                           Holo_Matrix(Alloc_I, Alloc_J) := 1; -- Allocated
                         end if;
                      end;
                   end loop;
@@ -255,16 +259,36 @@ procedure EmergeOS is
    
    procedure Serial_Put_String (S : String) is
    begin
-      for C of S loop
-         Serial_Put_Char (C);
+      for I in S'Range loop
+         Serial_Put_Char (S(I));
       end loop;
    end Serial_Put_String;
    
+   -- Simple number to string conversion (avoid runtime dependencies)
+   function Natural_To_String (N : Natural) return String is
+      Digits : constant String := "0123456789";
+      Result : String (1 .. 10) := (others => '0');
+      Index : Integer := Result'Last;
+      Num : Natural := N;
+   begin
+      if N = 0 then
+         return "0";
+      end if;
+      
+      while Num > 0 loop
+         Result(Index) := Digits(Num mod 10 + 1);
+         Num := Num / 10;
+         Index := Index - 1;
+      end loop;
+      
+      return Result(Index + 1 .. Result'Last);
+   end Natural_To_String;
+
+begin
    -- ================================
    -- HOLOXLIFE OS BOOT SEQUENCE
    -- ================================
 
-begin
    -- Phase 1: Hardware Initialization
    Console_Clear;
    Serial_Init;
@@ -275,7 +299,9 @@ begin
    Console_New_Line;
    Console_New_Line;
    
-   Serial_Put_String ("HoloXlife OS - Pure Ada Kernel Booting..." & ASCII.CR & ASCII.LF);
+   Serial_Put_String ("HoloXlife OS - Pure Ada Kernel Booting...");
+   Serial_Put_Char (ASCII.CR);
+   Serial_Put_Char (ASCII.LF);
    
    -- Phase 2: Holographic Memory System
    Console_Put_String ("Initializing Holographic Memory System...");
@@ -297,24 +323,16 @@ begin
       Device_Entity : constant Natural := Create_Entity (Entity_Device);
       FS_Entity : constant Natural := Create_Entity (Entity_Filesystem);
    begin
-      Console_Put_String ("- CPU Entity ID: ");
-      Console_Put_Char (Character'Val(Character'Pos('0') + CPU_Entity));
-      Console_Put_String (" [ACTIVE]");
+      Console_Put_String ("- CPU Entity ID: " & Natural_To_String(CPU_Entity) & " [ACTIVE]");
       Console_New_Line;
       
-      Console_Put_String ("- Memory Entity ID: ");
-      Console_Put_Char (Character'Val(Character'Pos('0') + Memory_Entity));
-      Console_Put_String (" [ACTIVE]");
+      Console_Put_String ("- Memory Entity ID: " & Natural_To_String(Memory_Entity) & " [ACTIVE]");
       Console_New_Line;
       
-      Console_Put_String ("- Device Entity ID: ");
-      Console_Put_Char (Character'Val(Character'Pos('0') + Device_Entity));
-      Console_Put_String (" [ACTIVE]");  
+      Console_Put_String ("- Device Entity ID: " & Natural_To_String(Device_Entity) & " [ACTIVE]");
       Console_New_Line;
       
-      Console_Put_String ("- Filesystem Entity ID: ");
-      Console_Put_Char (Character'Val(Character'Pos('0') + FS_Entity));
-      Console_Put_String (" [ACTIVE]");
+      Console_Put_String ("- Filesystem Entity ID: " & Natural_To_String(FS_Entity) & " [ACTIVE]");
       Console_New_Line;
    end;
    
@@ -358,7 +376,9 @@ begin
    Console_Put_String ("===============================================");
    Console_New_Line;
    
-   Serial_Put_String ("HoloXlife OS Boot Complete - Pure Ada OS Running!" & ASCII.CR & ASCII.LF);
+   Serial_Put_String ("HoloXlife OS Boot Complete - Pure Ada OS Running!");
+   Serial_Put_Char (ASCII.CR);
+   Serial_Put_Char (ASCII.LF);
    
    -- Main OS Loop - Your operating system is now running!
    loop
