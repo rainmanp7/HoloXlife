@@ -41,13 +41,10 @@ jobs:
         run: |
           echo "📦 Installing GNAT Ada compiler and build tools..."
           sudo apt-get update -y
-          # 🛠️ CORRECTION: Replaced 'libncurses5' (which is obsolete) 
-          # with 'libncursesw5' and 'libncurses5-dev' for modern Ubuntu runners.
           sudo apt-get install -y \
             build-essential \
             nasm \
             gnat \
-            gprbuild \
             gcc-multilib \
             bochs \
             bochs-x \
@@ -62,12 +59,6 @@ jobs:
           echo "GNAT version:"
           gnat --version
           echo ""
-          echo "GNATMAKE version:" 
-          gnatmake --version
-          echo ""
-          echo "GPRBUILD version:"
-          gprbuild --version 2>/dev/null || echo "gprbuild version check failed"
-          echo ""
           echo "NASM version:"
           nasm --version
           echo ""
@@ -81,7 +72,17 @@ jobs:
           ls -la
           echo ""
           echo "🔍 Checking required files:"
-          for file in boot.asm kernel_entry.asm linker.ld emergeos.adb emergeos.gpr Makefile; do
+          for file in \
+            boot.asm \
+            kernel_entry.asm \
+            linker.ld \
+            emergeos.adb \
+            system.ads \
+            s-lastch.ads \
+            s-lastch.adb \
+            s-memory.ads \
+            s-memory.adb \
+            Makefile; do
             if [ -f "$file" ]; then
               echo "✅ $file ($(stat -c%s "$file") bytes)"
             else
@@ -96,20 +97,7 @@ jobs:
           # Clean any existing build
           make clean 2>/dev/null || true
           
-          # Build step by step with verbose output
-          echo "Step 1: Compile Ada kernel..."
-          make emergeos.o
-          
-          echo "Step 2: Assemble kernel entry..."  
-          make kernel_entry.o
-          
-          echo "Step 3: Link kernel..."
-          make kernel.bin
-          
-          echo "Step 4: Build bootloader..."
-          make boot.bin
-          
-          echo "Step 5: Create disk image..."
+          # Build the full image in one step
           make $IMAGE_NAME
           
           # Verify build results
@@ -160,7 +148,7 @@ jobs:
           vga: extension=none
           com1: enabled=1, mode=file, dev=$SERIAL_LOG
           magic_break: enabled=1
-          EOF
+EOF
           
           echo "📄 Bochs configuration:"
           cat "$BOCHS_CONFIG"
@@ -251,5 +239,4 @@ jobs:
           echo "Target: i386 bare metal"
           echo "Boot test: Completed"
           
-          # Always exit successfully for analysis
           echo "✅ Analysis complete"
