@@ -1,9 +1,8 @@
-/* linker.ld - Improved for Ada kernel with heap */
+/* linker.ld - Ada kernel with heap at 128 KiB */
 ENTRY(_start)
 
 SECTIONS
 {
-    /* Kernel loaded at 64 KiB (0x10000) - matches your current bootloader */
     . = 0x10000;
 
     .text : {
@@ -25,19 +24,17 @@ SECTIONS
         __bss_end = .;
     }
 
-    /* End of kernel image */
     __kernel_end = .;
 
-    /* Reserve 64 KiB heap starting at 128 KiB (0x20000) */
+    /* Heap: 64 KiB at 128 KiB (0x20000) */
     . = 0x20000;
     __heap_start = .;
-    . = 0x30000;        /* 64 KiB heap (128 KiB → 192 KiB) */
+    . = 0x30000;
     __heap_end = .;
 
-    /* Stack grows downward from 256 KiB (0x40000) */
+    /* Stack top at 256 KiB */
     __stack_top = 0x40000;
 
-    /* Discard debug and exception metadata (not needed in freestanding) */
     /DISCARD/ : {
         *(.eh_frame)
         *(.comment)
