@@ -1,6 +1,4 @@
 -- system.ads
-pragma Compiler_Unit_Warning;
-
 package System is
    pragma Pure;
 
@@ -17,6 +15,5 @@ package System is
    Word_Size    : constant := 32;
    Memory_Size  : constant := 2**32;
 
-   -- No elaboration code
    pragma No_Elaboration_Code_All;
 end System;
