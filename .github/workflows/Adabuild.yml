@@ -33,14 +33,14 @@ jobs:
           path: |
             /var/cache/apt/archives
             /var/lib/apt/lists
-          key: ${{ runner.os }}-ada-bochs-${{ hashFiles('**/Makefile') }}-v2
+          key: ${{ runner.os }}-ada-bochs-${{ hashFiles('**/Makefile') }}-v3
           restore-keys: |
             ${{ runner.os }}-ada-bochs-
 
       - name: Install Ada Compiler and Dependencies
         run: |
           echo "📦 Installing GNAT Ada compiler and build tools..."
-          sudo apt-get update -y
+          sudo apt-get update -q
           sudo apt-get install -y \
             build-essential \
             nasm \
@@ -50,21 +50,25 @@ jobs:
             bochs-x \
             gettext-base \
             xvfb \
-            libncurses5-dev
+            libncurses5-dev \
+            xxd
           echo "✅ Installation complete"
 
       - name: Verify Ada Installation
         run: |
           echo "🔍 Verifying Ada toolchain..."
           echo "GNAT version:"
-          gnat --version
+          gnat --version || echo "GNAT not available"
+          echo ""
+          echo "GCC version:"
+          gcc --version | head -1 || echo "GCC not available"
           echo ""
           echo "NASM version:"
-          nasm --version
+          nasm --version || echo "NASM not available"
           echo ""
           echo "Bochs version:"
           bochs --version 2>&1 | head -3 || echo "Bochs version check failed"
-          echo "✅ Ada toolchain verified"
+          echo "✅ Ada toolchain verification complete"
 
       - name: Show Project Files
         run: |
@@ -97,8 +101,19 @@ jobs:
           # Clean any existing build
           make clean 2>/dev/null || true
           
-          # Build the full image in one step
-          make $IMAGE_NAME
+          # Show Makefile targets for debugging
+          echo "Available Makefile targets:"
+          make help 2>/dev/null || make -n 2>/dev/null | head -10 || echo "No help available"
+          
+          # Try to build step by step for better error reporting
+          echo "Building bootloader..."
+          make boot.bin || { echo "❌ Failed to build bootloader"; exit 1; }
+          
+          echo "Building kernel..."
+          make kernel.bin || { echo "❌ Failed to build kernel"; exit 1; }
+          
+          echo "Creating disk image..."
+          make $IMAGE_NAME || { echo "❌ Failed to create disk image"; exit 1; }
           
           # Verify build results
           if [ ! -f "$IMAGE_NAME" ]; then
@@ -110,7 +125,7 @@ jobs:
           
           echo "✅ Build successful!"
           echo "📊 Build artifacts:"
-          ls -la *.bin *.img *.elf 2>/dev/null || true
+          ls -la *.bin *.img *.elf 2>/dev/null || echo "No binary files found"
 
       - name: Analyze Kernel Binary
         run: |
@@ -120,25 +135,37 @@ jobs:
             echo "Kernel size: $(stat -c%s kernel.bin) bytes"
             echo "Kernel sectors needed: $(( ($(stat -c%s kernel.bin) + 511) / 512 ))"
             echo "Kernel file type:"
-            file kernel.bin
+            file kernel.bin 2>/dev/null || echo "file command failed"
             echo "First 32 bytes (hex):"
-            xxd -l 32 kernel.bin 2>/dev/null || hexdump -C kernel.bin | head -2
+            if command -v xxd >/dev/null 2>&1; then
+              xxd -l 32 kernel.bin
+            else
+              hexdump -C kernel.bin | head -2
+            fi
+          else
+            echo "⚠️ kernel.bin not found"
           fi
           
           if [ -f boot.bin ]; then
             echo "Bootloader size: $(stat -c%s boot.bin) bytes"
             echo "Boot signature (last 2 bytes should be 55 AA):"
-            xxd -s -2 boot.bin 2>/dev/null | grep -E '55aa' || echo "Signature check failed or no output"
+            if command -v xxd >/dev/null 2>&1; then
+              xxd -s -2 boot.bin | grep -i '55aa' || echo "Boot signature not found or incorrect"
+            else
+              tail -c 2 boot.bin | hexdump -C | grep -i '55aa' || echo "Boot signature check failed"
+            fi
+          else
+            echo "⚠️ boot.bin not found"
           fi
 
       - name: Create Bochs Configuration  
         run: |
           echo "⚙️ Creating Bochs configuration..."
-          cat > "$BOCHS_CONFIG" << EOF
+          cat > "$BOCHS_CONFIG" << 'EOF'
           # Bochs configuration for Ada EmergeOS
-          floppya: 1_44=$IMAGE_NAME, status=inserted
+          floppya: 1_44=emergeos.img, status=inserted
           boot: floppy
-          log: $BOCHS_LOG
+          log: bochs.log
           panic: action=report
           error: action=report  
           info: action=report
@@ -146,9 +173,10 @@ jobs:
           cpu: model=pentium_mmx, ips=2000000
           megs: 128
           vga: extension=none
-          com1: enabled=1, mode=file, dev=$SERIAL_LOG
+          com1: enabled=1, mode=file, dev=serial.log
           magic_break: enabled=1
-EOF
+          display_library: x, options="gui_debug"
+          EOF
           
           echo "📄 Bochs configuration:"
           cat "$BOCHS_CONFIG"
@@ -157,29 +185,47 @@ EOF
         run: |
           echo "🚀 Testing EmergeOS Ada boot..."
           
+          # Verify image exists
+          if [ ! -f "$IMAGE_NAME" ]; then
+            echo "❌ Image file $IMAGE_NAME not found"
+            ls -la *.img 2>/dev/null || echo "No .img files found"
+            exit 1
+          fi
+          
           # Clean previous logs
-          rm -f "$BOCHS_LOG" "$SERIAL_LOG" bochs_output.log
+          rm -f "$BOCHS_LOG" "$SERIAL_LOG" bochs_output.log bochs_error.log
           
           # Start virtual display
           export DISPLAY=:99
-          Xvfb :99 -screen 0 1024x768x24 &
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
           XVFB_PID=$!
-          sleep 2
+          sleep 3
           
-          # Run Bochs with timeout
+          # Test if Xvfb started correctly
+          if ! kill -0 $XVFB_PID 2>/dev/null; then
+            echo "❌ Failed to start virtual display"
+            exit 1
+          fi
+          
+          # Run Bochs with timeout and better error handling
           set +e
-          timeout 20s bochs -q -f "$BOCHS_CONFIG" 2>&1 | tee bochs_output.log
+          timeout 20s bochs -q -f "$BOCHS_CONFIG" > bochs_output.log 2> bochs_error.log
           BOCHS_EXIT=$?
           set -e
           
           # Cleanup
           kill $XVFB_PID 2>/dev/null || true
+          wait $XVFB_PID 2>/dev/null || true
           
           echo "Bochs exit code: $BOCHS_EXIT"
           if [ $BOCHS_EXIT -eq 124 ]; then
             echo "✅ Boot test timed out as expected (20 seconds)"
+          elif [ $BOCHS_EXIT -eq 0 ]; then
+            echo "✅ Bochs completed successfully"
           else
-            echo "ℹ️ Bochs exited with code $BOCHS_EXIT"
+            echo "⚠️ Bochs exited with code $BOCHS_EXIT"
+            echo "Error output:"
+            cat bochs_error.log 2>/dev/null || echo "No error output"
           fi
 
       - name: Analyze Boot Results
@@ -196,6 +242,15 @@ EOF
           fi
           
           echo ""
+          echo "1b. 🚨 BOCHS ERROR OUTPUT:"
+          if [ -f bochs_error.log ] && [ -s bochs_error.log ]; then
+            echo "--- Bochs error output ---"
+            cat bochs_error.log
+          else
+            echo "No Bochs error output"
+          fi
+          
+          echo ""
           echo "2. 📋 BOCHS INTERNAL LOG:"
           if [ -f "$BOCHS_LOG" ] && [ -s "$BOCHS_LOG" ]; then
             echo "--- Bochs internal log (last 50 lines) ---"
@@ -204,17 +259,15 @@ EOF
             # Look for boot success indicators
             echo ""
             echo "🔍 Boot analysis:"
-            if grep -i "EMERGEOS.*ADA.*BOOTED" "$BOCHS_LOG" >/dev/null 2>&1; then
+            if grep -i "EMERGEOS.*ADA.*BOOTED\|SUCCESS.*Ada.*Kernel\|Ada.*kernel.*started" "$BOCHS_LOG" >/dev/null 2>&1; then
               echo "✅ Ada kernel boot message detected!"
-            elif grep -i "SUCCESS.*Ada.*Kernel" "$BOCHS_LOG" >/dev/null 2>&1; then
-              echo "✅ Ada kernel success message detected!"  
             else
               echo "⚠️ No Ada kernel boot messages found in log"
             fi
             
-            if grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" >/dev/null 2>&1; then
+            if grep -i "exception\|fault\|triple.*fault\|panic\|error" "$BOCHS_LOG" >/dev/null 2>&1; then
               echo "❌ System errors detected:"
-              grep -i "exception\|fault\|triple.*fault\|panic" "$BOCHS_LOG" | tail -5
+              grep -i "exception\|fault\|triple.*fault\|panic\|error" "$BOCHS_LOG" | tail -5
             else
               echo "✅ No critical system errors detected"
             fi
@@ -233,10 +286,27 @@ EOF
           
           echo ""
           echo "4. 📈 BUILD SUMMARY:"
-          echo "Image: $IMAGE_NAME ($(stat -L -c%s "$IMAGE_NAME" 2>/dev/null || echo "0") bytes)"
+          if [ -f "$IMAGE_NAME" ]; then
+            echo "Image: $IMAGE_NAME ($(stat -L -c%s "$IMAGE_NAME" 2>/dev/null || echo "0") bytes)"
+          else
+            echo "Image: $IMAGE_NAME - NOT FOUND"
+          fi
           echo "Language: Ada 2012"
           echo "Compiler: GNAT"
           echo "Target: i386 bare metal"
           echo "Boot test: Completed"
           
           echo "✅ Analysis complete"
+
+      - name: Upload Build Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergeos-ada-build-${{ github.sha }}
+          path: |
+            *.img
+            *.bin
+            *.elf
+            *.log
+            bochsrc.txt
+          retention-days: 7
