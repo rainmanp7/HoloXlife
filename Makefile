@@ -1,6 +1,5 @@
 ASM = nasm
 CC = gcc
-CFLAGS = -m32 -c -ffreestanding -fno-pie -Wall -Wextra -std=c99 -nostdlib -fno-builtin
 ADAFLAGS = -c -x ada -gnat2012 -gnatwa -gnatwe -m32 -O2 -gnatp -fno-stack-protector
 LDFLAGS = -m elf_i386 -T linker.ld --nmagic
 QEMU = qemu-system-i386
