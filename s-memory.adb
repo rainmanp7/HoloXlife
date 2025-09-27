@@ -1,4 +1,4 @@
--- s-memory.adb (updated for 0x20000 heap)
+-- s-memory.adb
 with System.Storage_Elements;
 package body System.Memory is
    use System.Storage_Elements;
@@ -31,7 +31,7 @@ package body System.Memory is
 
    procedure Deallocate (Addr : Address; Size : size_t) is
    begin
-      null;  -- Bump allocator: no free list
+      null;  -- Bump allocator: no free
    end Deallocate;
 
 end System.Memory;
