@@ -12,15 +12,12 @@ start:
     sti
 
     mov [boot_drive], dl
-    cmp dl, 0x80
-    jl invalid_drive
-
     mov si, boot_msg
     call print
 
     call disk_load
 
-    lgdt [gdt_descriptor]        ; FIXED: was "gdt"
+    lgdt [gdt_descriptor]
     mov eax, cr0
     or al, 1
     mov cr0, eax
@@ -58,14 +55,21 @@ disk_load:
     mov ah, 0x42
     mov dl, [boot_drive]
     int 0x13
+    jc disk_error
     popa
     ret
 
+disk_error:
+    mov si, disk_err_msg
+    call print
+    jmp $
+
 boot_msg: db "Booting...", 13, 10, 0
+disk_err_msg: db "Disk read error!", 13, 10, 0
 boot_drive: db 0
 
 %ifndef HOLOGRAPHIC_KERNEL_SECTORS
-HOLOGRAPHIC_KERNEL_SECTORS equ 4
+HOLOGRAPHIC_KERNEL_SECTORS equ 8
 %endif
 
 gdt_start:
@@ -91,10 +95,12 @@ gdt_descriptor:
     dd gdt_start
 
 DAP:
-    db 0x10, 0
-    dw HOLOGRAPHIC_KERNEL_SECTORS
-    dw 0x1000, 0
-    dd 1
+    db 0x10         ; Size of DAP
+    db 0            ; Reserved
+    dw HOLOGRAPHIC_KERNEL_SECTORS ; Number of sectors
+    dw 0x1000       ; Buffer offset
+    dw 0x0000       ; Buffer segment
+    dq 1            ; Starting LBA
 
 times 510-($-$$) db 0
 dw 0xAA55
