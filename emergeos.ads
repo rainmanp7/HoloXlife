@@ -1,7 +1,6 @@
--- emergeos.ads - HoloXlife OS Specification
+-- emergeos.ads - HoloXlife OS Specification (Fixed)
 package EmergeOS is
+   procedure EmergeOS;
    pragma Export (Assembly, EmergeOS, "emergeos_main");
    pragma No_Return (EmergeOS);
-   
-   procedure EmergeOS;
 end EmergeOS;
