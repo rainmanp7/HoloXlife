@@ -81,6 +81,7 @@ jobs:
           for file in \
             boot.asm \
             linker.ld \
+            emergeos.ads \
             emergeos.adb \
             system.ads \
             boot.adb \
@@ -134,19 +135,22 @@ jobs:
             cat gnat.adc
           fi
           echo ""
-          echo "Step 2: Compiling Pure Ada kernel..."
+          echo "Step 2: Compiling Ada package specification..."
+          make emergeos.ads.o || { echo "❌ Failed to compile Ada package spec"; exit 1; }
+          echo ""
+          echo "Step 3: Compiling Pure Ada kernel..."
           make emergeos.o || { echo "❌ Failed to compile Ada kernel"; exit 1; }
           echo ""
-          echo "Step 3: Compiling bootloader..."
+          echo "Step 4: Compiling bootloader..."
           make boot.o || { echo "❌ Failed to compile bootloader"; exit 1; }
           echo ""
-          echo "Step 4: Linking Pure Ada OS kernel..."
+          echo "Step 5: Linking Pure Ada OS kernel..."
           make kernel.bin || { echo "❌ Failed to link Ada OS kernel"; exit 1; }
           echo ""
-          echo "Step 5: Building bootloader..."
+          echo "Step 6: Building bootloader..."
           make boot.bin || { echo "❌ Failed to build bootloader"; exit 1; }
           echo ""
-          echo "Step 6: Creating HoloXlife OS disk image..."
+          echo "Step 7: Creating HoloXlife OS disk image..."
           make $IMAGE_NAME || { echo "❌ Failed to create OS image"; exit 1; }
           # Verify build results
           if [ ! -f "$IMAGE_NAME" ]; then
@@ -424,6 +428,7 @@ jobs:
             *.adc
             bochsrc.txt
             Makefile
+            emergeos.ads
             emergeos.adb
             boot.adb
             system.ads
