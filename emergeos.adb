@@ -245,9 +245,9 @@ procedure EmergeOS is
       end loop;
    end Serial_Put_String;
    
-   -- Simple number to string conversion (avoid runtime dependencies)
+            -- Simple number to string conversion (avoid runtime dependencies)
    function Natural_To_String (N : Natural) return String is
-      Digits : constant String := "0123456789";
+      Digit_Chars : constant String := "0123456789";
       Result : String (1 .. 10) := (others => '0');
       Index : Integer := Result'Last;
       Num : Natural := N;
@@ -255,15 +255,25 @@ procedure EmergeOS is
       if N = 0 then
          return "0";
       end if;
-      
+
       while Num > 0 loop
-         Result(Index) := Digits(Num mod 10 + 1);
+         declare
+            Digit_Index : Natural := Num mod 10 + 1;
+         begin
+            if Digit_Index >= Digit_Chars'First and Digit_Index <= Digit_Chars'Last then
+               Result(Index) := Digit_Chars(Digit_Index);
+            else
+               -- Handle the error, possibly by returning an error string
+               return "Error";  -- Or some other appropriate error handling
+            end if;
+         end;
          Num := Num / 10;
          Index := Index - 1;
       end loop;
-      
+
       return Result(Index + 1 .. Result'Last);
    end Natural_To_String;
+
 
 begin
    -- ================================
