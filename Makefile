@@ -21,21 +21,18 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Protected_Types);" >> gnat.adc
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
 
-# Compile Ada package spec first
-emergeos.ads.o: emergeos.ads gnat.adc
-	$(GCC) $(ADAFLAGS) emergeos.ads -o emergeos.ads.o
-
 # Compile bootloader in Ada
 boot.o: boot.adb gnat.adc
 	$(GCC) $(ADAFLAGS) boot.adb -o boot.o
 
 # Compile Pure Ada kernel using GCC directly (no gnatmake)
-emergeos.o: emergeos.adb emergeos.ads.o gnat.adc
+# The .ads file is automatically processed when compiling the .adb file
+emergeos.o: emergeos.adb emergeos.ads gnat.adc
 	$(GCC) $(ADAFLAGS) emergeos.adb -o emergeos.o
 
 # Link Pure Ada OS kernel 
-kernel.bin: boot.o emergeos.o emergeos.ads.o linker.ld
-	ld $(LDFLAGS) -o kernel.elf boot.o emergeos.o emergeos.ads.o
+kernel.bin: boot.o emergeos.o linker.ld
+	ld $(LDFLAGS) -o kernel.elf boot.o emergeos.o
 	objcopy -O binary kernel.elf kernel.bin
 
 # Build bootloader from assembly
