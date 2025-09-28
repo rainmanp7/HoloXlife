@@ -1,32 +1,30 @@
+/* HoloXlife Pure Ada OS Linker Script */
 ENTRY(_start)
+
 SECTIONS
 {
-    . = 0x1000;
+    . = 0x8000;  /* Kernel loads at 0x8000 */
+    
     .text : {
-        *(.text*)
+        *(.text)
+        *(.text.*)
     }
+    
     .rodata : {
-        *(.rodata*)
+        *(.rodata)
+        *(.rodata.*)
     }
+    
     .data : {
-        *(.data*)
+        *(.data)
+        *(.data.*)
     }
+    
     .bss : {
-        __bss_start = .;
-        *(.bss*)
-        *(COMMON)
-        __bss_end = .;
-    }
-    __kernel_end = .;
-    . = 0x20000;
-    __heap_start = .;
-    . = 0x30000;
-    __heap_end = .;
-    __stack_top = 0x40000;
-    /DISCARD/ : {
-        *(.eh_frame)
-        *(.comment)
-        *(.note*)
-        *(.debug*)
+        *(.bss)
+        *(.bss.*)
     }
 }
+
+/* Define entry point */
+_start = boot;
