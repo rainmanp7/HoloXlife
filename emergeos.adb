@@ -1,8 +1,8 @@
 -- emergeos.adb - Pure Ada HoloXlife Operating System (Fixed)
 with System;
+with System.Storage_Elements;
+
 procedure EmergeOS is
-   pragma Export (Assembly, EmergeOS, "emergeos_main");
-   pragma No_Return (EmergeOS);
    -- ========================================
    -- HOLOXLIFE OS - PURE ADA IMPLEMENTATION
    -- ========================================
@@ -11,11 +11,13 @@ procedure EmergeOS is
    type Word is mod 2**16; 
    type DWord is mod 2**32;
    type QWord is mod 2**64;
+
    -- Hardware port I/O using procedure imports (simpler approach)
    procedure Port_Out_8 (Port : Word; Value : Byte);
    pragma Import (C, Port_Out_8, "port_out_8");
    function Port_In_8 (Port : Word) return Byte;
    pragma Import (C, Port_In_8, "port_in_8");
+
    -- ================================
    -- VGA CONSOLE SUBSYSTEM (Pure Ada)
    -- ================================
@@ -35,7 +37,7 @@ procedure EmergeOS is
    pragma Pack (VGA_Entry);
    type VGA_Buffer_Type is array (0 .. 24, 0 .. 79) of VGA_Entry;
    VGA_Buffer : VGA_Buffer_Type;
-   for VGA_Buffer'Address use System.Storage_Elements.Storage_Address(16#B8000#);
+   for VGA_Buffer'Address use System.Storage_Elements.To_Address(16#B8000#);
    pragma Import (Ada, VGA_Buffer);
    Console_Row : Natural := 0;
    Console_Col : Natural := 0;
@@ -87,6 +89,7 @@ procedure EmergeOS is
    begin
       Console_Put_Char (ASCII.LF);
    end Console_New_Line;
+
    -- =======================================
    -- HOLOGRAPHIC MEMORY MANAGER (Pure Ada)
    -- =======================================
@@ -100,7 +103,7 @@ procedure EmergeOS is
    type Holo_Matrix_Type is array (0 .. HOLO_MATRIX_SIZE-1, 
                                   0 .. HOLO_MATRIX_SIZE-1) of Byte;
    Holo_Matrix : Holo_Matrix_Type;
-   for Holo_Matrix'Address use System.Storage_Elements.Storage_Address(HOLO_BASE);
+   for Holo_Matrix'Address use System.Storage_Elements.To_Address(HOLO_BASE);
    pragma Import (Ada, Holo_Matrix);
    Holo_Allocated_Blocks : Natural := 0;
    Holo_Free_Blocks : Natural := HOLO_MATRIX_SIZE * HOLO_MATRIX_SIZE;
@@ -151,6 +154,7 @@ procedure EmergeOS is
       end loop;
       return 0; -- Allocation failed
    end Holo_Allocate;
+
    -- =============================
    -- ENTITY MANAGEMENT (Pure Ada)
    -- =============================
@@ -180,6 +184,7 @@ procedure EmergeOS is
       end if;
       return 0; -- Failed to create
    end Create_Entity;
+
    -- ==============================
    -- SERIAL PORT DEBUG (Pure Ada)
    -- ==============================
@@ -208,7 +213,8 @@ procedure EmergeOS is
          Serial_Put_Char (S(I));
       end loop;
    end Serial_Put_String;
-            -- Simple number to string conversion (avoid runtime dependencies)
+
+   -- Simple number to string conversion (avoid runtime dependencies)
    function Natural_To_String (N : Natural) return String is
       Digit_Chars : constant String := "0123456789";
       Result : String (1 .. 10) := (others => '0');
@@ -225,8 +231,7 @@ procedure EmergeOS is
             if Digit_Index >= Digit_Chars'First and Digit_Index <= Digit_Chars'Last then
                Result(Index) := Digit_Chars(Digit_Index);
             else
-               -- Handle the error, possibly by returning an error string
-               return "Error";  -- Or some other appropriate error handling
+               return "Error";  -- Fallback on invalid index
             end if;
          end;
          Num := Num / 10;
@@ -234,6 +239,7 @@ procedure EmergeOS is
       end loop;
       return Result(Index + 1 .. Result'Last);
    end Natural_To_String;
+
 begin
    -- ================================
    -- HOLOXLIFE OS BOOT SEQUENCE
@@ -249,6 +255,7 @@ begin
    -- Serial_Put_String ("HoloXlife OS - Pure Ada Kernel Booting...");
    -- Serial_Put_Char (ASCII.CR);
    -- Serial_Put_Char (ASCII.LF);
+
    -- Phase 2: Holographic Memory System
    Console_Put_String ("Initializing Holographic Memory System...");
    Console_New_Line;
@@ -258,6 +265,7 @@ begin
    Console_Put_String ("- Memory Space: 64KB Holographic Region");
    Console_New_Line;
    Console_New_Line;
+
    -- Phase 3: Entity Creation
    Console_Put_String ("Creating Core Entities...");
    Console_New_Line;
@@ -280,6 +288,7 @@ begin
    Console_Put_String ("Entity Framework: OPERATIONAL");
    Console_New_Line;
    Console_New_Line;
+
    -- Phase 4: Memory Allocation Test
    Console_Put_String ("Testing Holographic Allocator...");
    Console_New_Line;
@@ -296,6 +305,7 @@ begin
          Console_New_Line;
       end if;
    end;
+
    -- Phase 5: OS Ready
    Console_New_Line;
    Console_Put_String ("===============================================");
@@ -312,13 +322,16 @@ begin
    Console_New_Line;
    Console_Put_String ("===============================================");
    Console_New_Line;
-   -- Serial_Put_String ("HoloXlife OS Boot Complete - Pure Ada OS Running!");
-   -- Serial_Put_Char (ASCII.CR);
-   -- Serial_Put_Char (ASCII.LF);
+
    -- Main OS Loop - Your operating system is now running!
    loop
       -- OS Main Loop - Add your OS functionality here
       -- This is where your operating system lives and breathes
       null; -- OS idle state
    end loop;
+
 end EmergeOS;
+
+-- Place pragmas AFTER the procedure body for correct scoping
+pragma Export (Assembly, EmergeOS, "emergeos_main");
+pragma No_Return (EmergeOS);
