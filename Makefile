@@ -6,10 +6,11 @@ ADAFLAGS = -x ada -gnat2012 -gnatwa -gnatwe -gnatp -O2 \
            -m32 -nostdlib -nodefaultlibs \
            -fno-stack-protector -static -c \
            -gnatec=gnat.adc
+
 # Linker flags for bare-metal Ada
 LDFLAGS = -m elf_i386 -T linker.ld --nmagic -nostdlib -static
-BOCHS = bochs
-BOCHS_CONFIG = bochsrc.txt
+
+QEMU = qemu-system-i386
 
 all: emergeos.img
 
@@ -22,8 +23,8 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
 
 # Assemble kernel entry point
-kernel_entry.o: kernel_entry.asm
-	$(ASM) -f elf32 kernel_entry.asm -o kernel_entry.o
+kernel_entry.o: kernel_entry.adb
+	$(ASM) -f elf32 kernel_entry.adb -o kernel_entry.o
 
 # Compile Pure Ada kernel using GCC directly (no gnatmake)
 emergeos.o: emergeos.adb system.ads gnat.adc
@@ -36,7 +37,7 @@ kernel.bin: kernel_entry.o emergeos.o system.o
 	objcopy -O binary kernel.elf kernel.bin
 
 # Create bootloader with proper kernel size
-boot.bin: boot.asm kernel.bin
+boot.bin: boot.adb kernel.bin
 	@SECTORS=$$(( ($$(wc -c < kernel.bin) + 511) / 512 )); \
 	echo "Building Pure Ada OS with $$SECTORS kernel sectors"; \
 	$(ASM) -f bin -d HOLOGRAPHIC_KERNEL_SECTORS=$$SECTORS boot.asm -o boot.bin
@@ -49,15 +50,14 @@ emergeos.img: boot.bin kernel.bin
 	dd if=kernel.bin of=$@ seek=1 conv=notrunc
 	@echo "HoloXlife OS (Pure Ada) image created: emergeos.img"
 
-# Run Pure Ada OS in Bochs
+# Run Pure Ada OS in QEMU
 run: emergeos.img
 	@echo "Booting HoloXlife Pure Ada Operating System..."
-	$(BOCHS) -f $(BOCHS_CONFIG)
+	$(QEMU) -fda $< -serial stdio -no-reboot -no-shutdown
 
 # Debug run with more verbose output
-debug: emergeos.img
-	@echo "Debugging HoloXlife Pure Ada Operating System..."
-	$(BOCHS) -f $(BOCHS_CONFIG) -dbgui
+debug: emergeos.img 
+	$(QEMU) -fda $< -serial stdio -d int -no-reboot
 
 # Clean build artifacts
 clean:
@@ -68,7 +68,7 @@ clean:
 install-deps:
 	@echo "Installing Pure Ada OS build dependencies..."
 	sudo apt update
-	sudo apt install -y gcc-10 gcc-10-multilib nasm bochs bochs-x11 build-essential
+	sudo apt install -y gcc-10 gcc-10-multilib nasm qemu-system-x86 build-essential
 	@echo "Dependencies installed - ready for Pure Ada OS development!"
 
 # Show build info
