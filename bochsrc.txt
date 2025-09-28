@@ -1,0 +1,13 @@
+# Bochs Configuration for HoloXlife Pure Ada OS
+# ----------------------------------------------
+# Disk Image
+floppy: 1_44=emergeos.img, status=inserted
+
+# Boot Settings
+boot: floppy
+
+# Display Settings
+display_library: sdl2
+
+# Debugging Settings
+magic_break: enabled=1
