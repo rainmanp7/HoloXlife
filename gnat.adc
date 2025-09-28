@@ -1,0 +1,5 @@
+pragma Restrictions (No_Exceptions);
+pragma Restrictions (No_Implicit_Heap_Allocations);
+pragma Restrictions (No_Tasking);
+pragma Restrictions (No_Protected_Types);
+pragma Restrictions (No_Finalization);
