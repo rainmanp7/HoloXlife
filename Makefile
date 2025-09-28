@@ -29,22 +29,23 @@ boot.o: boot.adb gnat.adc
 emergeos.o: emergeos.adb gnat.adc
 	$(GCC) $(ADAFLAGS) emergeos.adb -o emergeos.o
 
-# Link Pure Ada OS kernel and bootloader
-kernel.bin: boot.o emergeos.o
+# Link Pure Ada OS kernel 
+kernel.bin: boot.o emergeos.o linker.ld
 	ld $(LDFLAGS) -o kernel.elf boot.o emergeos.o
 	objcopy -O binary kernel.elf kernel.bin
 
-# If you have boot.asm and want to build boot.bin from it, uncomment below
-# boot.bin: boot.asm kernel.bin
-#	@SECTORS=$$(( ($$(wc -c < kernel.bin) + 511) / 512 )); \
-#	echo "Building Pure Ada OS with $$SECTORS kernel sectors"; \
-#	$(ASM) -f bin -d HOLOGRAPHIC_KERNEL_SECTORS=$$SECTORS boot.asm -o boot.bin
+# Build bootloader from assembly
+boot.bin: boot.asm kernel.bin
+	@SECTORS=$$(( ($$(wc -c < kernel.bin) + 511) / 512 )); \
+	echo "Building Pure Ada OS with $$SECTORS kernel sectors"; \
+	$(ASM) -f bin -D HOLOGRAPHIC_KERNEL_SECTORS=$$SECTORS boot.asm -o boot.bin
 
-# Assemble final OS image (using boot.o + kernel)
-emergeos.img: kernel.bin
+# Create final OS image
+emergeos.img: boot.bin kernel.bin
 	@echo "Creating HoloXlife Pure Ada OS disk image..."
-	dd if=/dev/zero of=$@ bs=512 count=2880
-	dd if=kernel.bin of=$@ conv=notrunc
+	dd if=/dev/zero of=$@ bs=512 count=2880 2>/dev/null
+	dd if=boot.bin of=$@ conv=notrunc 2>/dev/null
+	dd if=kernel.bin of=$@ bs=512 seek=1 conv=notrunc 2>/dev/null
 	@echo "HoloXlife OS (Pure Ada) image created: emergeos.img"
 
 # Run Pure Ada OS in Bochs
