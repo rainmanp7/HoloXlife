@@ -2,7 +2,7 @@
 ASM = nasm
 GCC = gcc-10
 # Use GCC directly for Ada compilation (bypass gnatmake)
-ADAFLAGS = -x ada -gnat2012 -gnatwa -gnatwe -gnatp -O2 \
+ADAFLAGS = -x ada -gnat2012 -gnatwa -gnatp -O2 \
            -m32 -nostdlib -nodefaultlibs \
            -fno-stack-protector -static -c \
            -gnatec=gnat.adc
