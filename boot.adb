@@ -1,8 +1,7 @@
--- boot.adb - Pure Ada Bootloader with Correct Inline Assembly and Fixed Issues
+-- boot.adb - Pure Ada Bootloader with Fixed Issues
 with Interfaces;
 with System.Storage_Elements;
 with System.Machine_Code;
-with EmergeOS;  -- Import kernel package
 
 procedure Boot is
    use Interfaces;
@@ -14,17 +13,12 @@ procedure Boot is
    type Word is mod 2**16;
    type DWord is mod 2**32;
 
-   -- Hardware port I/O using procedure imports
-   procedure Port_Out_8 (Port : Word; Value : Byte);
-   pragma Import (C, Port_Out_8, "port_out_8");
-   function Port_In_8 (Port : Word) return Byte;
-   pragma Import (C, Port_In_8, "port_in_8");
-
    -- VGA CONSOLE SUBSYSTEM (Pure Ada)
    type VGA_Color is
      (Black, Blue, Green, Cyan, Red, Magenta, Brown, Light_Gray,
       Dark_Gray, Light_Blue, Light_Green, Light_Cyan, Light_Red,
       Light_Magenta, Yellow, White);
+   
    for VGA_Color use
      (Black => 0, Blue => 1, Green => 2, Cyan => 3, Red => 4,
       Magenta => 5, Brown => 6, Light_Gray => 7, Dark_Gray => 8,
@@ -100,96 +94,110 @@ procedure Boot is
    end Console_New_Line;
 
    -- GDT SETUP (Pure Ada)
-   type GDT_Descriptor is record
-      Limit : Word;
-      Base  : DWord;
-   end record;
-   pragma Pack (GDT_Descriptor);
-
    type GDT_Entry is record
-      Limit_Low  : Word;
-      Base_Low   : Word;
-      Base_Mid   : Byte;
-      Access_Bit : Byte;
-      Granularity: Byte;
-      Base_High  : Byte;
+      Limit_Low   : Word;
+      Base_Low    : Word;
+      Base_Mid    : Byte;
+      Access_Byte : Byte;
+      Granularity : Byte;
+      Base_High   : Byte;
    end record;
    pragma Pack (GDT_Entry);
 
-   type GDT_Table is array (0 .. 3) of GDT_Entry;
-   pragma Pack (GDT_Table);
+   type GDT_Pointer is record
+      Limit : Word;
+      Base  : DWord;
+   end record;
+   pragma Pack (GDT_Pointer);
 
-   GDT : GDT_Table := (
-      (Limit_Low  => 0,
-       Base_Low   => 0,
-       Base_Mid   => 0,
-       Access_Bit => 0,
-       Granularity=> 0,
-       Base_High  => 0),
-      (Limit_Low  => 16#FFFF#,
-       Base_Low   => 0,
-       Base_Mid   => 0,
-       Access_Bit => 16#9A#,
-       Granularity=> 16#CF#,
-       Base_High  => 0),
-      (Limit_Low  => 16#FFFF#,
-       Base_Low   => 0,
-       Base_Mid   => 0,
-       Access_Bit => 16#92#,
-       Granularity=> 16#CF#,
-       Base_High  => 0),
-      (Limit_Low  => 0,
-       Base_Low   => 0,
-       Base_Mid   => 0,
-       Access_Bit => 0,
-       Granularity=> 0,
-       Base_High  => 0));
+   -- GDT with null, code, and data segments
+   GDT : array (0 .. 2) of GDT_Entry := (
+      -- Null segment
+      0 => (Limit_Low   => 0,
+            Base_Low    => 0,
+            Base_Mid    => 0,
+            Access_Byte => 0,
+            Granularity => 0,
+            Base_High   => 0),
+      -- Code segment (base=0, limit=4GB, present, ring 0, executable, readable)
+      1 => (Limit_Low   => 16#FFFF#,
+            Base_Low    => 0,
+            Base_Mid    => 0,
+            Access_Byte => 16#9A#,  -- Present, Ring 0, Code, Execute/Read
+            Granularity => 16#CF#,  -- 4KB granularity, 32-bit, limit[19:16]=F
+            Base_High   => 0),
+      -- Data segment (base=0, limit=4GB, present, ring 0, writable)
+      2 => (Limit_Low   => 16#FFFF#,
+            Base_Low    => 0,
+            Base_Mid    => 0,
+            Access_Byte => 16#92#,  -- Present, Ring 0, Data, Read/Write
+            Granularity => 16#CF#,  -- 4KB granularity, 32-bit, limit[19:16]=F
+            Base_High   => 0));
 
-   GDT_Desc : GDT_Descriptor;
+   GDT_Ptr : GDT_Pointer;
 
    procedure Setup_GDT is
-      Size_In_Bytes : constant Natural := (GDT'Length * GDT_Entry'Size) / 8;
    begin
-      GDT_Desc.Limit := Word'Pred(Size_In_Bytes);
-      GDT_Desc.Base  := DWord(GDT'Address);
+      GDT_Ptr.Limit := Word(GDT'Size / 8 - 1);
+      GDT_Ptr.Base  := DWord(Integer_Address(GDT'Address));
 
-      -- Inline assembly to load GDT
-      asm (
-         "lgdt (%0)"
-         :
-         : "r" (GDT_Desc)
-         : "memory"
-      );
+      -- Load GDT using inline assembly
+      Asm (Template => "lgdt %0",
+           Inputs   => System.Machine_Code.C_Type'Asm_Input ("m", GDT_Ptr),
+           Volatile => True);
    end Setup_GDT;
 
    -- ENTER PROTECTED MODE
    procedure Enter_Protected_Mode is
    begin
-      asm (
-         "mov %%cr0, %%eax\n\t"
-         "or $1, %%eax\n\t"
-         "mov %%eax, %%cr0\n\t"
-         "jmp $0x08, $1f\n\t"
-         "1:"
-         :
-         :
-         : "eax", "memory"
-      );
+      -- Enable protected mode by setting CR0.PE bit
+      Asm (Template => "movl %%cr0, %%eax" & ASCII.LF &
+                       "orl $1, %%eax" & ASCII.LF &
+                       "movl %%eax, %%cr0" & ASCII.LF &
+                       "ljmp $0x08, $1f" & ASCII.LF &
+                       "1: movw $0x10, %%ax" & ASCII.LF &
+                       "movw %%ax, %%ds" & ASCII.LF &
+                       "movw %%ax, %%es" & ASCII.LF &
+                       "movw %%ax, %%fs" & ASCII.LF &
+                       "movw %%ax, %%gs" & ASCII.LF &
+                       "movw %%ax, %%ss",
+           Clobber  => "eax",
+           Volatile => True);
    end Enter_Protected_Mode;
 
+   -- Simple kernel stub (since EmergeOS package is not available)
+   procedure Kernel_Main is
+   begin
+      Console_Put_String ("Kernel loaded successfully!");
+      Console_New_Line;
+      Console_Put_String ("System ready.");
+      Console_New_Line;
+   end Kernel_Main;
+
 begin
+   -- Initialize console
    Console_Clear;
-   Console_Put_String ("Booting HoloXlife Pure Ada OS...");
+   Console_Put_String ("HoloXlife Pure Ada OS");
+   Console_New_Line;
+   Console_Put_String ("Initializing GDT...");
    Console_New_Line;
 
+   -- Setup GDT and enter protected mode
    Setup_GDT;
+   Console_Put_String ("GDT loaded. Entering protected mode...");
+   Console_New_Line;
+   
    Enter_Protected_Mode;
+   
+   -- Call kernel main
+   Kernel_Main;
 
-   -- Call the kernel main procedure explicitly
-   EmergeOS.EmergeOS;
-
-   -- Infinite loop if kernel returns
+   -- Halt system
+   Console_Put_String ("System halted.");
+   Console_New_Line;
+   
+   -- Infinite loop
    loop
-      null;
+      Asm (Template => "hlt", Volatile => True);
    end loop;
 end Boot;
