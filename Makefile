@@ -22,31 +22,29 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
 
 # Compile bootloader in Ada
-boot.o: boot.adb system.ads gnat.adc
+boot.o: boot.adb gnat.adc
 	$(GCC) $(ADAFLAGS) boot.adb -o boot.o
-	$(GCC) $(ADAFLAGS) system.ads -o system.o
 
 # Compile Pure Ada kernel using GCC directly (no gnatmake)
-emergeos.o: emergeos.adb system.ads gnat.adc
+emergeos.o: emergeos.adb gnat.adc
 	$(GCC) $(ADAFLAGS) emergeos.adb -o emergeos.o
 
-# Link Pure Ada OS kernel
-kernel.bin: boot.o emergeos.o system.o
-	ld $(LDFLAGS) -o kernel.elf boot.o emergeos.o system.o
+# Link Pure Ada OS kernel and bootloader
+kernel.bin: boot.o emergeos.o
+	ld $(LDFLAGS) -o kernel.elf boot.o emergeos.o
 	objcopy -O binary kernel.elf kernel.bin
 
-# Create bootloader with proper kernel size
-boot.bin: boot.asm kernel.bin
-	@SECTORS=$$(( ($$(wc -c < kernel.bin) + 511) / 512 )); \
-	echo "Building Pure Ada OS with $$SECTORS kernel sectors"; \
-	$(ASM) -f bin -d HOLOGRAPHIC_KERNEL_SECTORS=$$SECTORS boot.asm -o boot.bin
+# If you have boot.asm and want to build boot.bin from it, uncomment below
+# boot.bin: boot.asm kernel.bin
+#	@SECTORS=$$(( ($$(wc -c < kernel.bin) + 511) / 512 )); \
+#	echo "Building Pure Ada OS with $$SECTORS kernel sectors"; \
+#	$(ASM) -f bin -d HOLOGRAPHIC_KERNEL_SECTORS=$$SECTORS boot.asm -o boot.bin
 
-# Assemble final OS image
-emergeos.img: boot.bin kernel.bin
+# Assemble final OS image (using boot.o + kernel)
+emergeos.img: kernel.bin
 	@echo "Creating HoloXlife Pure Ada OS disk image..."
 	dd if=/dev/zero of=$@ bs=512 count=2880
-	dd if=boot.bin of=$@ conv=notrunc
-	dd if=kernel.bin of=$@ seek=1 conv=notrunc
+	dd if=kernel.bin of=$@ conv=notrunc
 	@echo "HoloXlife OS (Pure Ada) image created: emergeos.img"
 
 # Run Pure Ada OS in Bochs
@@ -61,7 +59,7 @@ debug: emergeos.img
 
 # Clean build artifacts
 clean:
-	rm -f *.bin *.o *.img *.elf *.ali gnat.adc system.o
+	rm -f *.bin *.o *.img *.elf *.ali gnat.adc
 	@echo "Pure Ada OS build cleaned"
 
 # Install dependencies (Ubuntu/Debian)
