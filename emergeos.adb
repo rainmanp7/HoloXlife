@@ -1,7 +1,4 @@
 -- emergeos.adb - Pure Ada HoloXlife Operating System (Fixed)
-pragma No_Run_Time;
-pragma Restrictions (No_Exceptions);
-pragma Restrictions (No_Implicit_Heap_Allocations);
 
 procedure EmergeOS is
    pragma Export (Assembly, EmergeOS, "emergeos_main");
@@ -17,28 +14,12 @@ procedure EmergeOS is
    type DWord is mod 2**32;
    type QWord is mod 2**64;
    
-   -- Hardware port I/O using inline assembly (Fixed version)
-   procedure Port_Out_8 (Port : Word; Value : Byte) is
-   begin
-      -- Inline assembly for x86 out instruction
-      System.Machine_Code.Asm 
-        (Template => "outb %%al, %%dx",
-         Inputs   => (Byte'Asm_Input ("a", Value), 
-                     Word'Asm_Input ("d", Port)),
-         Volatile => True);
-   end Port_Out_8;
+   -- Hardware port I/O using procedure imports (simpler approach)
+   procedure Port_Out_8 (Port : Word; Value : Byte);
+   pragma Import (C, Port_Out_8, "port_out_8");
    
-   function Port_In_8 (Port : Word) return Byte is
-      Result : Byte;
-   begin
-      -- Inline assembly for x86 in instruction
-      System.Machine_Code.Asm 
-        (Template => "inb %%dx, %%al",
-         Outputs  => Byte'Asm_Output ("=a", Result),
-         Inputs   => Word'Asm_Input ("d", Port),
-         Volatile => True);
-      return Result;
-   end Port_In_8;
+   function Port_In_8 (Port : Word) return Byte;
+   pragma Import (C, Port_In_8, "port_in_8");
    
    -- ================================
    -- VGA CONSOLE SUBSYSTEM (Pure Ada)
@@ -250,7 +231,7 @@ procedure EmergeOS is
    
    procedure Serial_Put_Char (C : Character) is
    begin
-      -- Wait for transmitter to be ready
+      -- Wait for transmitter to be ready  
       while (Port_In_8 (SERIAL_PORT + 5) and 16#20#) = 0 loop
          null;
       end loop;
@@ -291,7 +272,7 @@ begin
 
    -- Phase 1: Hardware Initialization
    Console_Clear;
-   Serial_Init;
+   -- Serial_Init;  -- Temporarily disabled for initial testing
    
    Console_Put_String ("HoloXlife OS v1.0 - Pure Ada Implementation");
    Console_New_Line;
@@ -299,9 +280,9 @@ begin
    Console_New_Line;
    Console_New_Line;
    
-   Serial_Put_String ("HoloXlife OS - Pure Ada Kernel Booting...");
-   Serial_Put_Char (ASCII.CR);
-   Serial_Put_Char (ASCII.LF);
+   -- Serial_Put_String ("HoloXlife OS - Pure Ada Kernel Booting...");
+   -- Serial_Put_Char (ASCII.CR);
+   -- Serial_Put_Char (ASCII.LF);
    
    -- Phase 2: Holographic Memory System
    Console_Put_String ("Initializing Holographic Memory System...");
@@ -376,9 +357,9 @@ begin
    Console_Put_String ("===============================================");
    Console_New_Line;
    
-   Serial_Put_String ("HoloXlife OS Boot Complete - Pure Ada OS Running!");
-   Serial_Put_Char (ASCII.CR);
-   Serial_Put_Char (ASCII.LF);
+   -- Serial_Put_String ("HoloXlife OS Boot Complete - Pure Ada OS Running!");
+   -- Serial_Put_Char (ASCII.CR);
+   -- Serial_Put_Char (ASCII.LF);
    
    -- Main OS Loop - Your operating system is now running!
    loop
