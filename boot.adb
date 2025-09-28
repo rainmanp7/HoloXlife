@@ -1,12 +1,10 @@
--- boot.adb - Pure Ada Bootloader with Simplified Assembly
+-- boot.adb - Pure Ada Bootloader (No Inline Assembly Version)
 with Interfaces;
 with System.Storage_Elements;
-with System.Machine_Code;
 
 procedure Boot is
    use Interfaces;
    use System.Storage_Elements;
-   use System.Machine_Code;
 
    -- Basic types for OS development
    type Byte is mod 2**8;
@@ -58,7 +56,7 @@ procedure Boot is
    end Console_Clear;
 
    procedure Console_Put_Char (C : Character) is
-      Color : constant Byte := Make_Color (White, Black);
+      Color : constant Byte := Make_Color (Light_Green, Black);
    begin
       if C = ASCII.LF then
          Console_Col := 0;
@@ -93,103 +91,28 @@ procedure Boot is
       Console_Put_Char (ASCII.LF);
    end Console_New_Line;
 
-   -- GDT SETUP (Pure Ada)
-   type GDT_Entry is record
-      Limit_Low   : Word;
-      Base_Low    : Word;
-      Base_Mid    : Byte;
-      Access_Byte : Byte;
-      Granularity : Byte;
-      Base_High   : Byte;
-   end record;
-   pragma Pack (GDT_Entry);
-
-   type GDT_Pointer is record
-      Limit : Word;
-      Base  : DWord;
-   end record;
-   pragma Pack (GDT_Pointer);
-
-   -- GDT with null, code, and data segments
-   GDT : array (0 .. 2) of GDT_Entry := (
-      -- Null segment
-      0 => (Limit_Low   => 0,
-            Base_Low    => 0,
-            Base_Mid    => 0,
-            Access_Byte => 0,
-            Granularity => 0,
-            Base_High   => 0),
-      -- Code segment (base=0, limit=4GB, present, ring 0, executable, readable)
-      1 => (Limit_Low   => 16#FFFF#,
-            Base_Low    => 0,
-            Base_Mid    => 0,
-            Access_Byte => 16#9A#,  -- Present, Ring 0, Code, Execute/Read
-            Granularity => 16#CF#,  -- 4KB granularity, 32-bit, limit[19:16]=F
-            Base_High   => 0),
-      -- Data segment (base=0, limit=4GB, present, ring 0, writable)
-      2 => (Limit_Low   => 16#FFFF#,
-            Base_Low    => 0,
-            Base_Mid    => 0,
-            Access_Byte => 16#92#,  -- Present, Ring 0, Data, Read/Write
-            Granularity => 16#CF#,  -- 4KB granularity, 32-bit, limit[19:16]=F
-            Base_High   => 0));
-
-   GDT_Ptr : GDT_Pointer;
-
-   -- External assembly functions (implement these in separate .s file)
-   procedure Load_GDT (GDT_Pointer_Addr : System.Address);
-   pragma Import (C, Load_GDT, "load_gdt");
-   
-   procedure Enter_Protected_Mode_Asm;
-   pragma Import (C, Enter_Protected_Mode_Asm, "enter_protected_mode");
-
-   procedure Setup_GDT is
-   begin
-      GDT_Ptr.Limit := Word(GDT'Length * GDT_Entry'Size / 8 - 1);
-      GDT_Ptr.Base  := DWord(To_Integer(GDT'Address));
-      
-      -- For now, just prepare the GDT pointer
-      -- In a real system, you'd call Load_GDT(GDT_Ptr'Address);
-   end Setup_GDT;
-
-   -- Simple kernel stub (since EmergeOS package is not available)
-   procedure Kernel_Main is
-   begin
-      Console_Put_String ("Kernel loaded successfully!");
-      Console_New_Line;
-      Console_Put_String ("Protected mode active.");
-      Console_New_Line;
-      Console_Put_String ("System ready.");
-      Console_New_Line;
-   end Kernel_Main;
+   -- External kernel entry point
+   procedure EmergeOS_Main;
+   pragma Import (Ada, EmergeOS_Main, "emergeos_main");
 
 begin
    -- Initialize console
    Console_Clear;
-   Console_Put_String ("HoloXlife Pure Ada OS");
+   Console_Put_String ("HoloXlife OS v1.0 - Pure Ada Implementation");
    Console_New_Line;
-   Console_Put_String ("Bootloader Version 1.0");
+   Console_Put_String ("Bootloader: Ada Runtime Initialized");
    Console_New_Line;
-   Console_Put_String ("Initializing GDT...");
+   Console_Put_String ("System: Starting kernel...");
    Console_New_Line;
 
-   -- Setup GDT (but don't load it yet due to inline asm issues)
-   Setup_GDT;
-   Console_Put_String ("GDT prepared.");
-   Console_New_Line;
-   
-   -- For now, skip protected mode transition
-   Console_Put_String ("Running in compatibility mode...");
-   Console_New_Line;
-   
-   -- Call kernel main
-   Kernel_Main;
+   -- Call the main kernel procedure
+   EmergeOS_Main;
 
-   -- Halt system
-   Console_Put_String ("System halted. Safe to power off.");
+   -- If kernel returns, halt
+   Console_Put_String ("System: Kernel returned - halting");
    Console_New_Line;
    
-   -- Simple infinite loop (without hlt for now)
+   -- Infinite loop
    loop
       null;
    end loop;
