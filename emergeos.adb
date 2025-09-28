@@ -1,9 +1,11 @@
--- emergeos.adb - HoloXlife OS Implementation
+-- emergeos.adb - Pure Ada HoloXlife Operating System (Final Working Version)
 with System;
 with System.Storage_Elements;
 
-package body EmergeOS is
-
+procedure EmergeOS is
+   pragma Export (Assembly, EmergeOS, "emergeos_main");
+   pragma No_Return (EmergeOS);
+   
    -- ========================================
    -- HOLOXLIFE OS - PURE ADA IMPLEMENTATION
    -- ========================================
@@ -11,8 +13,7 @@ package body EmergeOS is
    type Byte is mod 2**8;
    type Word is mod 2**16; 
    type DWord is mod 2**32;
-   type QWord is mod 2**64;
-
+   
    -- Hardware port I/O using procedure imports (simpler approach)
    procedure Port_Out_8 (Port : Word; Value : Byte);
    pragma Import (C, Port_Out_8, "port_out_8");
@@ -96,7 +97,6 @@ package body EmergeOS is
    -- =======================================
    -- Holographic memory configuration
    HOLO_BASE : constant := 16#A0000#;  -- Base address
-   HOLO_SIZE : constant := 16#10000#;  -- 64KB holographic space
    HOLO_MATRIX_SIZE : constant := 512; -- 512x512 matrix
    type Holo_Block_Status is (Free, Allocated, Reserved);
    for Holo_Block_Status use (Free => 0, Allocated => 1, Reserved => 2);
@@ -160,7 +160,7 @@ package body EmergeOS is
    -- ENTITY MANAGEMENT (Pure Ada)
    -- =============================
    type Entity_Type is (Entity_CPU, Entity_Memory, Entity_Device, Entity_Filesystem);
-   type Entity_Status is (Inactive, Active, Error, Suspended);
+   type Entity_Status is (Active);  -- Only using Active state (removed unused states)
    type Entity_Record is record
       Kind : Entity_Type;  -- Renamed from Entity_Type to avoid conflict
       ID : Natural;
@@ -186,35 +186,6 @@ package body EmergeOS is
       return 0; -- Failed to create
    end Create_Entity;
 
-   -- ==============================
-   -- SERIAL PORT DEBUG (Pure Ada)
-   -- ==============================
-   SERIAL_PORT : constant Word := 16#3F8#; -- COM1
-   procedure Serial_Init is
-   begin
-      Port_Out_8 (SERIAL_PORT + 1, 16#00#); -- Disable interrupts
-      Port_Out_8 (SERIAL_PORT + 3, 16#80#); -- Enable DLAB
-      Port_Out_8 (SERIAL_PORT + 0, 16#03#); -- Set divisor low byte (38400 baud)
-      Port_Out_8 (SERIAL_PORT + 1, 16#00#); -- Set divisor high byte
-      Port_Out_8 (SERIAL_PORT + 3, 16#03#); -- 8 bits, no parity, one stop bit
-      Port_Out_8 (SERIAL_PORT + 2, 16#C7#); -- Enable FIFO, clear them, 14-byte threshold
-      Port_Out_8 (SERIAL_PORT + 4, 16#0B#); -- IRQs enabled, RTS/DSR set
-   end Serial_Init;
-   procedure Serial_Put_Char (C : Character) is
-   begin
-      -- Wait for transmitter to be ready  
-      while (Port_In_8 (SERIAL_PORT + 5) and 16#20#) = 0 loop
-         null;
-      end loop;
-      Port_Out_8 (SERIAL_PORT, Byte(Character'Pos(C)));
-   end Serial_Put_Char;
-   procedure Serial_Put_String (S : String) is
-   begin
-      for I in S'Range loop
-         Serial_Put_Char (S(I));
-      end loop;
-   end Serial_Put_String;
-
    -- Simple number to string conversion (avoid runtime dependencies)
    function Natural_To_String (N : Natural) return String is
       Digit_Chars : constant String := "0123456789";
@@ -227,12 +198,12 @@ package body EmergeOS is
       end if;
       while Num > 0 loop
          declare
-            Digit_Index : Natural := Num mod 10 + 1;
+            Digit_Index : constant Natural := Num mod 10 + 1;  -- Made constant to fix warning
          begin
             if Digit_Index >= Digit_Chars'First and Digit_Index <= Digit_Chars'Last then
                Result(Index) := Digit_Chars(Digit_Index);
             else
-               return "Error";  -- Fallback on invalid index
+               return "Error";
             end if;
          end;
          Num := Num / 10;
@@ -241,99 +212,87 @@ package body EmergeOS is
       return Result(Index + 1 .. Result'Last);
    end Natural_To_String;
 
-   procedure EmergeOS is
-   begin
-      -- ================================
-      -- HOLOXLIFE OS BOOT SEQUENCE
-      -- ================================
-      -- Phase 1: Hardware Initialization
-      Console_Clear;
-      -- Serial_Init;  -- Temporarily disabled for initial testing
-      Console_Put_String ("HoloXlife OS v1.0 - Pure Ada Implementation");
-      Console_New_Line;
-      Console_Put_String ("===============================================");
-      Console_New_Line;
-      Console_New_Line;
-      -- Serial_Put_String ("HoloXlife OS - Pure Ada Kernel Booting...");
-      -- Serial_Put_Char (ASCII.CR);
-      -- Serial_Put_Char (ASCII.LF);
-
-      -- Phase 2: Holographic Memory System
-      Console_Put_String ("Initializing Holographic Memory System...");
-      Console_New_Line;
-      Holo_Memory_Init;
-      Console_Put_String ("- Holographic Matrix: 512x512 INITIALIZED");
-      Console_New_Line;
-      Console_Put_String ("- Memory Space: 64KB Holographic Region");
-      Console_New_Line;
-      Console_New_Line;
-
-      -- Phase 3: Entity Creation
-      Console_Put_String ("Creating Core Entities...");
-      Console_New_Line;
-      declare
-         CPU_Entity : constant Natural := Create_Entity (Entity_CPU);
-         Memory_Entity : constant Natural := Create_Entity (Entity_Memory);  
-         Device_Entity : constant Natural := Create_Entity (Entity_Device);
-         FS_Entity : constant Natural := Create_Entity (Entity_Filesystem);
-      begin
-         Console_Put_String ("- CPU Entity ID: " & Natural_To_String(CPU_Entity) & " [ACTIVE]");
-         Console_New_Line;
-         Console_Put_String ("- Memory Entity ID: " & Natural_To_String(Memory_Entity) & " [ACTIVE]");
-         Console_New_Line;
-         Console_Put_String ("- Device Entity ID: " & Natural_To_String(Device_Entity) & " [ACTIVE]");
-         Console_New_Line;
-         Console_Put_String ("- Filesystem Entity ID: " & Natural_To_String(FS_Entity) & " [ACTIVE]");
-         Console_New_Line;
-      end;
-      Console_New_Line;
-      Console_Put_String ("Entity Framework: OPERATIONAL");
-      Console_New_Line;
-      Console_New_Line;
-
-      -- Phase 4: Memory Allocation Test
-      Console_Put_String ("Testing Holographic Allocator...");
-      Console_New_Line;
-      declare
-         Test_Block : constant DWord := Holo_Allocate (128); -- 128 blocks
-      begin
-         if Test_Block /= 0 then
-            Console_Put_String ("- Holographic Allocation: SUCCESS");
-            Console_New_Line;
-            Console_Put_String ("- Allocated Blocks: 128");
-            Console_New_Line;
-         else
-            Console_Put_String ("- Holographic Allocation: FAILED");
-            Console_New_Line;
-         end if;
-      end;
-
-      -- Phase 5: OS Ready
-      Console_New_Line;
-      Console_Put_String ("===============================================");
-      Console_New_Line;
-      Console_Put_String ("HOLOXLIFE OPERATING SYSTEM BOOT COMPLETE!");
-      Console_New_Line;
-      Console_Put_String ("Pure Ada Implementation - No C Code");
-      Console_New_Line;
-      Console_Put_String ("Holographic Kernel: ONLINE");
-      Console_New_Line;
-      Console_Put_String ("Entity Management: ACTIVE");
-      Console_New_Line;
-      Console_Put_String ("System Status: READY");
-      Console_New_Line;
-      Console_Put_String ("===============================================");
-      Console_New_Line;
-
-      -- Main OS Loop - Your operating system is now running!
-      loop
-         -- OS Main Loop - Add your OS functionality here
-         -- This is where your operating system lives and breathes
-         null; -- OS idle state
-      end loop;
-   end EmergeOS;
-
 begin
-   -- The package body requires a dummy initialization section
-   null;
+   -- ================================
+   -- HOLOXLIFE OS BOOT SEQUENCE
+   -- ================================
+   -- Phase 1: Hardware Initialization
+   Console_Clear;
+   Console_Put_String ("HoloXlife OS v1.0 - Pure Ada Implementation");
+   Console_New_Line;
+   Console_Put_String ("===============================================");
+   Console_New_Line;
+   Console_New_Line;
+
+   -- Phase 2: Holographic Memory System
+   Console_Put_String ("Initializing Holographic Memory System...");
+   Console_New_Line;
+   Holo_Memory_Init;
+   Console_Put_String ("- Holographic Matrix: 512x512 INITIALIZED");
+   Console_New_Line;
+   Console_Put_String ("- Memory Space: 64KB Holographic Region");
+   Console_New_Line;
+   Console_New_Line;
+
+   -- Phase 3: Entity Creation
+   Console_Put_String ("Creating Core Entities...");
+   Console_New_Line;
+   declare
+      CPU_Entity : constant Natural := Create_Entity (Entity_CPU);
+      Memory_Entity : constant Natural := Create_Entity (Entity_Memory);  
+      Device_Entity : constant Natural := Create_Entity (Entity_Device);
+      FS_Entity : constant Natural := Create_Entity (Entity_Filesystem);
+   begin
+      Console_Put_String ("- CPU Entity ID: " & Natural_To_String(CPU_Entity) & " [ACTIVE]");
+      Console_New_Line;
+      Console_Put_String ("- Memory Entity ID: " & Natural_To_String(Memory_Entity) & " [ACTIVE]");
+      Console_New_Line;
+      Console_Put_String ("- Device Entity ID: " & Natural_To_String(Device_Entity) & " [ACTIVE]");
+      Console_New_Line;
+      Console_Put_String ("- Filesystem Entity ID: " & Natural_To_String(FS_Entity) & " [ACTIVE]");
+      Console_New_Line;
+   end;
+   Console_New_Line;
+   Console_Put_String ("Entity Framework: OPERATIONAL");
+   Console_New_Line;
+   Console_New_Line;
+
+   -- Phase 4: Memory Allocation Test
+   Console_Put_String ("Testing Holographic Allocator...");
+   Console_New_Line;
+   declare
+      Test_Block : constant DWord := Holo_Allocate (128); -- 128 blocks
+   begin
+      if Test_Block /= 0 then
+         Console_Put_String ("- Holographic Allocation: SUCCESS");
+         Console_New_Line;
+         Console_Put_String ("- Allocated Blocks: 128");
+         Console_New_Line;
+      else
+         Console_Put_String ("- Holographic Allocation: FAILED");
+         Console_New_Line;
+      end if;
+   end;
+
+   -- Phase 5: OS Ready
+   Console_New_Line;
+   Console_Put_String ("===============================================");
+   Console_New_Line;
+   Console_Put_String ("HOLOXLIFE OPERATING SYSTEM BOOT COMPLETE!");
+   Console_New_Line;
+   Console_Put_String ("Pure Ada Implementation - No C Code");
+   Console_New_Line;
+   Console_Put_String ("Holographic Kernel: ONLINE");
+   Console_New_Line;
+   Console_Put_String ("Entity Management: ACTIVE");
+   Console_New_Line;
+   Console_Put_String ("System Status: READY");
+   Console_New_Line;
+   Console_Put_String ("===============================================");
+   Console_New_Line;
+
+   -- Main OS Loop - Your operating system is now running!
+   loop
+      null; -- OS idle state
+   end loop;
 end EmergeOS;
