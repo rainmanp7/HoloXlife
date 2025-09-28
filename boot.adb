@@ -1,4 +1,5 @@
 -- boot.adb - Pure Ada Bootloader with Minimal Inline Assembly
+-- Eliminates kernel_entry.asm by calling EmergeOS directly
 with Interfaces;
 with System.Storage_Elements;
 
@@ -29,15 +30,18 @@ procedure Boot is
       Magenta => 5, Brown => 6, Light_Gray => 7, Dark_Gray => 8,
       Light_Blue => 9, Light_Green => 10, Light_Cyan => 11,
       Light_Red => 12, Light_Magenta => 13, Yellow => 14, White => 15);
+
    type VGA_Entry is record
       Char : Character;
       Attr : Byte;
    end record;
    pragma Pack (VGA_Entry);
+
    type VGA_Buffer_Type is array (0 .. 24, 0 .. 79) of VGA_Entry;
    VGA_Buffer : VGA_Buffer_Type;
-   for VGA_Buffer'Address use 16#B8000#;
+   for VGA_Buffer'Address use Storage_Address(16#B8000#);
    pragma Import (Ada, VGA_Buffer);
+
    Console_Row : Natural := 0;
    Console_Col : Natural := 0;
 
@@ -200,6 +204,7 @@ procedure Boot is
    -- ==============================
    -- PROTECTED MODE CODE (Pure Ada with Inline Assembly)
    -- ==============================
+   -- This code sets up stack, clears .bss, and calls EmergeOS directly.
    procedure Protected_Mode_Code is
       asm_code : constant String := "
          [bits 32]
@@ -209,20 +214,20 @@ procedure Boot is
          mov es, ax
          mov fs, ax
          mov gs, ax
-         mov esp, 0x90000
-         call kernel_entry
+         mov esp, 0x90000        ; Set up stack at 576KB
+         ; Clear BSS section (if __bss_start and __bss_end are defined)
+         mov edi, __bss_start
+         mov ecx, __bss_end
+         sub ecx, edi
+         xor eax, eax
+         rep stosb
+         call emergeos_main       ; Call the main Ada procedure
          jmp $
       ";
    begin
       Asm (asm_code,
            Volatile => True);
    end Protected_Mode_Code;
-
-   -- ==============================
-   -- KERNEL ENTRY (Ada)
-   -- ==============================
-   procedure Kernel_Entry;
-   pragma Export (Ada, Kernel_Entry, "kernel_entry");
 
 begin
    -- ================================
@@ -242,7 +247,7 @@ begin
    -- Enter protected mode
    Enter_Protected_Mode;
 
-   -- Call protected mode code
+   -- Call protected mode code (which calls EmergeOS)
    Protected_Mode_Code;
 
    -- Should never reach here
