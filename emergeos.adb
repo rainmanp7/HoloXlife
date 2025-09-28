@@ -302,3 +302,11 @@ begin
    -- The package body requires a dummy initialization section
    null;
 end EmergeOS;
+
+procedure EmergeOS_Main is
+begin
+   -- Call your existing EmergeOS procedure
+   EmergeOS;
+end EmergeOS_Main;
+
+pragma Export (C, EmergeOS_Main, "emergeos_main");
