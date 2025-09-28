@@ -153,8 +153,7 @@ procedure Boot is
       GDT_Desc.Limit := Word'Pred(Size_In_Bytes);
       GDT_Desc.Base  := DWord(GDT'Address);
 
-      -- Inline assembly to load GDT - using gnatchop compatible syntax
-      -- If this does not compile, replace with external asm file or remove temporarily
+      -- Inline assembly to load GDT
       asm (
          "lgdt (%0)"
          :
