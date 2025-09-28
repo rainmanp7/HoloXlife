@@ -21,26 +21,22 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Protected_Types);" >> gnat.adc
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
 
-# Compile bootloader in Ada
-boot.o: boot.adb system.ads gnat.adc
-	$(GCC) $(ADAFLAGS) -ffreestanding -Wa,-adhln=boot.lst boot.adb -o boot.o
-	$(GCC) $(ADAFLAGS) -ffreestanding -Wa,-adhln=system.lst system.ads -o system.o
+# Assemble kernel entry point
+kernel_entry.o: kernel_entry.asm
+	$(ASM) -f elf32 kernel_entry.asm -o kernel_entry.o
 
-# Compile kernel entry in Ada
-kernel_entry.o: kernel_entry.adb system.ads gnat.adc
-	$(GCC) $(ADAFLAGS) -ffreestanding -Wa,-adhln=kernel_entry.lst kernel_entry.adb -o kernel_entry.o
-
-# Compile main kernel in Ada
+# Compile Pure Ada kernel using GCC directly (no gnatmake)
 emergeos.o: emergeos.adb system.ads gnat.adc
-	$(GCC) $(ADAFLAGS) -ffreestanding -Wa,-adhln=emergeos.lst emergeos.adb -o emergeos.o
+	$(GCC) $(ADAFLAGS) emergeos.adb -o emergeos.o
+	$(GCC) $(ADAFLAGS) system.ads -o system.o
 
 # Link Pure Ada OS kernel
-kernel.bin: boot.o kernel_entry.o emergeos.o system.o
-	ld $(LDFLAGS) -o kernel.elf boot.o kernel_entry.o emergeos.o system.o
+kernel.bin: kernel_entry.o emergeos.o system.o
+	ld $(LDFLAGS) -o kernel.elf kernel_entry.o emergeos.o system.o
 	objcopy -O binary kernel.elf kernel.bin
 
 # Create bootloader with proper kernel size
-boot.bin: boot.o kernel.bin
+boot.bin: boot.asm kernel.bin
 	@SECTORS=$$(( ($$(wc -c < kernel.bin) + 511) / 512 )); \
 	echo "Building Pure Ada OS with $$SECTORS kernel sectors"; \
 	$(ASM) -f bin -d HOLOGRAPHIC_KERNEL_SECTORS=$$SECTORS boot.asm -o boot.bin
@@ -65,7 +61,7 @@ debug: emergeos.img
 
 # Clean build artifacts
 clean:
-	rm -f *.bin *.o *.img *.elf *.ali gnat.adc system.o boot.lst kernel_entry.lst emergeos.lst
+	rm -f *.bin *.o *.img *.elf *.ali gnat.adc system.o
 	@echo "Pure Ada OS build cleaned"
 
 # Install dependencies (Ubuntu/Debian)
