@@ -3,7 +3,7 @@ ASM = nasm
 GCC = gcc-10
 # Use GCC directly for Ada compilation (bypass gnatmake)
 ADAFLAGS = -x ada -gnat2012 -gnatwa -gnatwe -gnatp -O2 \
-           -m32 -ffreestanding -nostdlib -nodefaultlibs \
+           -m32 -nostdlib -nodefaultlibs \
            -fno-stack-protector -static -c \
            -gnatec=gnat.adc
 
@@ -16,13 +16,11 @@ all: emergeos.img
 
 # Create Ada configuration file (restricts runtime features)
 gnat.adc:
-	@echo "pragma Restrictions (No_Run_Time);" > gnat.adc
-	@echo "pragma Restrictions (No_Exceptions);" >> gnat.adc  
+	@echo "pragma Restrictions (No_Exceptions);" > gnat.adc
 	@echo "pragma Restrictions (No_Implicit_Heap_Allocations);" >> gnat.adc
 	@echo "pragma Restrictions (No_Tasking);" >> gnat.adc
 	@echo "pragma Restrictions (No_Protected_Types);" >> gnat.adc
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
-	@echo "pragma Restrictions (No_Dynamic_Attachment);" >> gnat.adc
 
 # Assemble kernel entry point
 kernel_entry.o: kernel_entry.asm
