@@ -21,9 +21,9 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Protected_Types);" >> gnat.adc
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
 
-# Compile kernel entry in Ada
-kernel_entry.o: kernel_entry.adb system.ads gnat.adc
-	$(GCC) $(ADAFLAGS) kernel_entry.adb -o kernel_entry.o
+# Compile bootloader in Ada
+boot.o: boot.adb system.ads gnat.adc
+	$(GCC) $(ADAFLAGS) boot.adb -o boot.o
 	$(GCC) $(ADAFLAGS) system.ads -o system.o
 
 # Compile Pure Ada kernel using GCC directly (no gnatmake)
@@ -31,8 +31,8 @@ emergeos.o: emergeos.adb system.ads gnat.adc
 	$(GCC) $(ADAFLAGS) emergeos.adb -o emergeos.o
 
 # Link Pure Ada OS kernel
-kernel.bin: kernel_entry.o emergeos.o system.o
-	ld $(LDFLAGS) -o kernel.elf kernel_entry.o emergeos.o system.o
+kernel.bin: boot.o emergeos.o system.o
+	ld $(LDFLAGS) -o kernel.elf boot.o emergeos.o system.o
 	objcopy -O binary kernel.elf kernel.bin
 
 # Create bootloader with proper kernel size
