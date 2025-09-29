@@ -1,6 +1,7 @@
 -- boot.adb - Pure Ada Bootloader (No Inline Assembly Version)
 with Interfaces;
 with System.Storage_Elements;
+with EmergeOS;  -- ADDED: Import the Ada kernel package
 
 procedure Boot is
    use Interfaces;
@@ -91,9 +92,8 @@ procedure Boot is
       Console_Put_Char (ASCII.LF);
    end Console_New_Line;
 
-   -- External kernel entry point
-   -- Use the actual Ada kernel package
-with EmergeOS;
+   -- REMOVED: procedure EmergeOS_Main;
+   -- REMOVED: pragma Import (C, EmergeOS_Main, "emergeos_main");
 
 begin
    -- Initialize console
@@ -106,7 +106,7 @@ begin
    Console_New_Line;
 
    -- Call the main kernel procedure
-   EmergeOS.EmergeOS;
+   EmergeOS.EmergeOS;  -- CHANGED: Call the Ada procedure directly
 
    -- If kernel returns, halt
    Console_Put_String ("System: Kernel returned - halting");
