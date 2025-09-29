@@ -1,4 +1,6 @@
 ```markdown
+[![HoloXlife Pure Ada OS Build and Boot Test](https://github.com/rainmanp7/HoloXlife/actions/workflows/Adabuild.yml/badge.svg)](https://github.com/rainmanp7/HoloXlife/actions/workflows/Adabuild.yml)
+
 # EmergeOS Ada - Advanced Holographic Kernel
 
 ## Overview
