@@ -205,8 +205,8 @@ package body EmergeOS is
 
    -- Simple number output without runtime dependencies
    procedure Put_Natural (N : Natural) is
-      type Digit_Array is array (0 .. 9) of Character;
-      Digits : constant Digit_Array := ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+      type Digit_Array_Type is array (0 .. 9) of Character;
+      Digit_Chars : constant Digit_Array_Type := ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
       Num : Natural := N;
       Divisor : Natural := 1;
    begin
@@ -223,7 +223,7 @@ package body EmergeOS is
       
       -- Output each digit
       while Divisor > 0 loop
-         Console_Put_Char (Digits((Num / Divisor) mod 10));
+         Console_Put_Char (Digit_Chars((Num / Divisor) mod 10));
          Divisor := Divisor / 10;
       end loop;
    end Put_Natural;
