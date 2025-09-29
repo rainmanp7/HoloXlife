@@ -290,11 +290,3 @@ package body EmergeOS is
 begin
    null;
 end EmergeOS;
-
--- Standalone procedure for C export
-procedure EmergeOS_Main is
-begin
-   EmergeOS.EmergeOS;
-end EmergeOS_Main;
-
-pragma Export (C, EmergeOS_Main, "emergeos_main");
