@@ -27,4 +27,4 @@ SECTIONS
 }
 
 /* Define entry point */
-_start = _boot_main;
+_start = Boot;
