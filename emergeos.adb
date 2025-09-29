@@ -8,6 +8,9 @@ package body EmergeOS is
    type Byte is mod 2**8;
    type Word is mod 2**16; 
    type DWord is mod 2**32;
+   
+   pragma Unreferenced (Word);
+   pragma Unreferenced (DWord);
 
    -- ================================
    -- VGA CONSOLE SUBSYSTEM (Pure Ada)
@@ -182,6 +185,8 @@ package body EmergeOS is
    Entity_Table : array (1 .. Max_Entities) of Entity_Record;
    Entity_Count : Natural := 0;
    
+   pragma Unreferenced (Entity_Table);
+
    -- State initialization procedure
    procedure Initialize_Entities is
    begin
@@ -205,27 +210,11 @@ package body EmergeOS is
 
    -- Simple number output without runtime dependencies
    procedure Put_Natural (N : Natural) is
-      type Digit_Array_Type is array (0 .. 9) of Character;
-      Digit_Chars : constant Digit_Array_Type := ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
-      Num : Natural := N;
-      Divisor : Natural := 1;
    begin
-      -- Handle zero case
-      if N = 0 then
-         Console_Put_Char ('0');
-         return;
+      if N > 9 then
+         Put_Natural (N / 10);
       end if;
-      
-      -- Find the highest divisor
-      while Num / Divisor >= 10 loop
-         Divisor := Divisor * 10;
-      end loop;
-      
-      -- Output each digit
-      while Divisor > 0 loop
-         Console_Put_Char (Digit_Chars((Num / Divisor) mod 10));
-         Divisor := Divisor / 10;
-      end loop;
+      Console_Put_Char (Character'Val(Character'Pos('0') + (N mod 10)));
    end Put_Natural;
 
    procedure EmergeOS is
