@@ -203,31 +203,30 @@ package body EmergeOS is
       return 0;
    end Create_Entity;
 
-   -- Simple number to string conversion
-   function Natural_To_String (N : Natural) return String is
-      Digit_Chars : constant String := "0123456789";
-      Result : String (1 .. 10) := (others => '0');
-      Index : Integer := Result'Last;
+   -- Simple number output without runtime dependencies
+   procedure Put_Natural (N : Natural) is
+      type Digit_Array is array (0 .. 9) of Character;
+      Digits : constant Digit_Array := ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
       Num : Natural := N;
+      Divisor : Natural := 1;
    begin
+      -- Handle zero case
       if N = 0 then
-         return "0";
+         Console_Put_Char ('0');
+         return;
       end if;
-      while Num > 0 loop
-         declare
-            Digit_Index : constant Natural := Num mod 10 + 1;
-         begin
-            if Digit_Index >= Digit_Chars'First and Digit_Index <= Digit_Chars'Last then
-               Result(Index) := Digit_Chars(Digit_Index);
-            else
-               return "Error";
-            end if;
-         end;
-         Num := Num / 10;
-         Index := Index - 1;
+      
+      -- Find the highest divisor
+      while Num / Divisor >= 10 loop
+         Divisor := Divisor * 10;
       end loop;
-      return Result(Index + 1 .. Result'Last);
-   end Natural_To_String;
+      
+      -- Output each digit
+      while Divisor > 0 loop
+         Console_Put_Char (Digits((Num / Divisor) mod 10));
+         Divisor := Divisor / 10;
+      end loop;
+   end Put_Natural;
 
    procedure EmergeOS is
    begin
@@ -260,13 +259,24 @@ package body EmergeOS is
          Device_Entity : constant Natural := Create_Entity (Entity_Device);
          FS_Entity : constant Natural := Create_Entity (Entity_Filesystem);
       begin
-         Console_Put_String ("- CPU Entity ID: " & Natural_To_String(CPU_Entity) & " [ACTIVE]");
+         Console_Put_String ("- CPU Entity ID: ");
+         Put_Natural (CPU_Entity);
+         Console_Put_String (" [ACTIVE]");
          Console_New_Line;
-         Console_Put_String ("- Memory Entity ID: " & Natural_To_String(Memory_Entity) & " [ACTIVE]");
+         
+         Console_Put_String ("- Memory Entity ID: ");
+         Put_Natural (Memory_Entity);
+         Console_Put_String (" [ACTIVE]");
          Console_New_Line;
-         Console_Put_String ("- Device Entity ID: " & Natural_To_String(Device_Entity) & " [ACTIVE]");
+         
+         Console_Put_String ("- Device Entity ID: ");
+         Put_Natural (Device_Entity);
+         Console_Put_String (" [ACTIVE]");
          Console_New_Line;
-         Console_Put_String ("- Filesystem Entity ID: " & Natural_To_String(FS_Entity) & " [ACTIVE]");
+         
+         Console_Put_String ("- Filesystem Entity ID: ");
+         Put_Natural (FS_Entity);
+         Console_Put_String (" [ACTIVE]");
          Console_New_Line;
       end;
       Console_New_Line;
