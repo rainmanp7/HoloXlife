@@ -1,9 +1,9 @@
-/* HoloXlife Pure Ada OS Linker Script - Fixed Entry Point */
-ENTRY(boot_main)
+/* HoloXlife Pure Ada OS Linker Script - Corrected Entry */
+ENTRY(_ada_boot)
 
 SECTIONS
 {
-    . = 0x8000;  /* Kernel loads at 0x8000 */
+    . = 0x8000;
     
     .text : {
         *(.text)
@@ -26,5 +26,4 @@ SECTIONS
     }
 }
 
-/* Fixed: Use correct Ada export name */
-_start = boot_main;
+_start = _ada_boot;
