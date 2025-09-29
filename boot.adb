@@ -92,8 +92,8 @@ procedure Boot is
    end Console_New_Line;
 
    -- External kernel entry point
-   procedure EmergeOS_Main;
-   pragma Import (C, EmergeOS_Main, "emergeos_main");
+   -- Use the actual Ada kernel package
+with EmergeOS;
 
 begin
    -- Initialize console
@@ -106,7 +106,7 @@ begin
    Console_New_Line;
 
    -- Call the main kernel procedure
-   EmergeOS_Main;
+   EmergeOS.EmergeOS;
 
    -- If kernel returns, halt
    Console_Put_String ("System: Kernel returned - halting");
