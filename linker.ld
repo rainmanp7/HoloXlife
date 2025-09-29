@@ -1,5 +1,5 @@
-/* HoloXlife Pure Ada OS Linker Script */
-ENTRY(_start)
+/* HoloXlife Pure Ada OS Linker Script - Fixed Entry Point */
+ENTRY(boot_main)
 
 SECTIONS
 {
@@ -26,5 +26,5 @@ SECTIONS
     }
 }
 
-/* Define entry point */
-_start = Boot;
+/* Fixed: Use correct Ada export name */
+_start = boot_main;
