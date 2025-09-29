@@ -21,10 +21,6 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Protected_Types);" >> gnat.adc
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
 	@echo "pragma Restrictions (No_Secondary_Stack);" >> gnat.adc
-	@echo "pragma Restrictions (No_Elaboration_Code);" >> gnat.adc
-	@echo "pragma Restrictions (No_Implicit_Conditionals);" >> gnat.adc
-	@echo "pragma Restrictions (No_Fixed_Point);" >> gnat.adc
-	@echo "pragma Restrictions (No_Obsolescent_Features);" >> gnat.adc
 
 # Compile bootloader in Ada
 boot.o: boot.adb gnat.adc
