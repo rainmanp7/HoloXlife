@@ -1,6 +1,7 @@
 -- emergeos.adb - Pure Ada HoloXlife Operating System
 with System;
 with System.Storage_Elements;
+with ASCII;  -- Added for ASCII.LF and ASCII.CR
 
 package body EmergeOS is
 
@@ -36,6 +37,13 @@ package body EmergeOS is
    
    Console_Row : Natural := 0;
    Console_Col : Natural := 0;
+   
+   -- State initialization procedure
+   procedure Initialize_Console is
+   begin
+      Console_Row := 0;
+      Console_Col := 0;
+   end Initialize_Console;
    
    function Make_Color (FG, BG : VGA_Color) return Byte is
    begin
@@ -105,6 +113,13 @@ package body EmergeOS is
    Holo_Allocated_Blocks : Natural := 0;
    Holo_Free_Blocks : Natural := HOLO_MATRIX_SIZE * HOLO_MATRIX_SIZE;
    
+   -- State initialization procedure
+   procedure Initialize_Holo_Memory is
+   begin
+      Holo_Allocated_Blocks := 0;
+      Holo_Free_Blocks := HOLO_MATRIX_SIZE * HOLO_MATRIX_SIZE;
+   end Initialize_Holo_Memory;
+   
    procedure Holo_Memory_Init is
    begin
       for I in Holo_Matrix'Range(1) loop
@@ -112,8 +127,7 @@ package body EmergeOS is
             Holo_Matrix(I, J) := 0;
          end loop;
       end loop;
-      Holo_Allocated_Blocks := 0;
-      Holo_Free_Blocks := HOLO_MATRIX_SIZE * HOLO_MATRIX_SIZE;
+      Initialize_Holo_Memory;
    end Holo_Memory_Init;
    
    function Holo_Allocate (Blocks_Needed : Natural) return DWord is
@@ -169,6 +183,12 @@ package body EmergeOS is
    Entity_Table : array (1 .. Max_Entities) of Entity_Record;
    Entity_Count : Natural := 0;
    
+   -- State initialization procedure
+   procedure Initialize_Entities is
+   begin
+      Entity_Count := 0;
+   end Initialize_Entities;
+   
    function Create_Entity (E_Type : Entity_Type) return Natural is
    begin
       if Entity_Count < Max_Entities then
@@ -212,6 +232,11 @@ package body EmergeOS is
 
    procedure EmergeOS is
    begin
+      -- Initialize all subsystems first
+      Initialize_Console;
+      Initialize_Holo_Memory;
+      Initialize_Entities;
+      
       Console_Clear;
       Console_Put_String ("HoloXlife OS v1.0 - Pure Ada Implementation");
       Console_New_Line;
