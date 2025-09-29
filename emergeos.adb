@@ -1,7 +1,6 @@
 -- emergeos.adb - Pure Ada HoloXlife Operating System
 with System;
 with System.Storage_Elements;
-with ASCII;  -- Added for ASCII.LF and ASCII.CR
 
 package body EmergeOS is
 
