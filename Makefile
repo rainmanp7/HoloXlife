@@ -20,13 +20,17 @@ gnat.adc:
 	@echo "pragma Restrictions (No_Tasking);" >> gnat.adc
 	@echo "pragma Restrictions (No_Protected_Types);" >> gnat.adc
 	@echo "pragma Restrictions (No_Finalization);" >> gnat.adc
+	@echo "pragma Restrictions (No_Secondary_Stack);" >> gnat.adc
+	@echo "pragma Restrictions (No_Elaboration_Code);" >> gnat.adc
+	@echo "pragma Restrictions (No_Implicit_Conditionals);" >> gnat.adc
+	@echo "pragma Restrictions (No_Fixed_Point);" >> gnat.adc
+	@echo "pragma Restrictions (No_Obsolescent_Features);" >> gnat.adc
 
 # Compile bootloader in Ada
 boot.o: boot.adb gnat.adc
 	$(GCC) $(ADAFLAGS) boot.adb -o boot.o
 
 # Compile Pure Ada kernel using GCC directly (no gnatmake)
-# The .ads file is automatically processed when compiling the .adb file
 emergeos.o: emergeos.adb emergeos.ads gnat.adc
 	$(GCC) $(ADAFLAGS) emergeos.adb -o emergeos.o
 
@@ -54,33 +58,9 @@ run: emergeos.img
 	@echo "Booting HoloXlife Pure Ada Operating System..."
 	$(BOCHS) -f $(BOCHS_CONFIG)
 
-# Debug run with more verbose output
-debug: emergeos.img
-	@echo "Debugging HoloXlife Pure Ada Operating System..."
-	$(BOCHS) -f $(BOCHS_CONFIG) -dbgui
-
 # Clean build artifacts
 clean:
 	rm -f *.bin *.o *.img *.elf *.ali gnat.adc
 	@echo "Pure Ada OS build cleaned"
 
-# Install dependencies (Ubuntu/Debian)
-install-deps:
-	@echo "Installing Pure Ada OS build dependencies..."
-	sudo apt update
-	sudo apt install -y gcc-10 gcc-10-multilib nasm bochs bochs-x11 build-essential
-	@echo "Dependencies installed - ready for Pure Ada OS development!"
-
-# Show build info
-info:
-	@echo "========================================="
-	@echo "HoloXlife Pure Ada Operating System"
-	@echo "========================================="
-	@echo "Language: 100% Ada (No C code)"
-	@echo "Architecture: i686 (32-bit x86)"
-	@echo "Memory: Holographic 512x512 matrix"
-	@echo "Features: Entity-based architecture"
-	@echo "Build System: GCC + NASM (No GNAT runtime)"
-	@echo "========================================="
-
-.PHONY: all clean run debug install-deps info
+.PHONY: all clean run
